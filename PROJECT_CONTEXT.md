@@ -95,12 +95,15 @@ background.js    Service worker. PROVIDER config (enabled/url/headers),
 ## 6. Roadmap
 
 - [x] MVP skeleton (4 files above)
-- [ ] Load unpacked, validate selectors against live LinkedIn feed
+- [x] Automated integration harness (jsdom) exercising the content pipeline +
+      selectors against representative post markup (`test/integration-content.test.js`)
+- [ ] Load unpacked, validate selectors against live LinkedIn feed (manual, logged-in browser)
 - [ ] Wire Stage-2 to a real detection API (candidate: Pangram, $0.05/1k words;
       map response in background.js) — on-demand or viewport-only scanning to
-      control cost
+      control cost. Pluggable provider registry + disabled Pangram-style example
+      already in place; needs a live key + verified request/response mapping.
 - [ ] Sentence-level highlighting of flagged passages inside the post
-- [ ] Options page: sensitivity threshold, provider key, on-demand vs auto mode
+- [x] Options page: sensitivity threshold, provider key, on-demand vs auto mode
 - [ ] Icons + Chrome Web Store listing assets
 - [ ] v2 candidates: author-level reputation aggregation; X/Substack support
 

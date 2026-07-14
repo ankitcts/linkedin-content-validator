@@ -40,6 +40,17 @@ npm run package    # zip src/ into dist/ (manifest.json at archive root)
 
 Extension source lives in `src/` (loaded unpacked in Chrome during development).
 
+### Testing
+
+- **Unit tests** cover the Stage-1 detector signals, SHA-256 hashing, and the cache.
+- **Integration test** (`test/integration-content.test.js`) loads the content scripts in
+  manifest order into a `jsdom` LinkedIn-shaped fixture and drives the real
+  `IntersectionObserver → detect → renderCard → inject` flow, asserting the card is
+  injected (and upgraded via a mocked Stage-2), and that the `MIN_WORDS` and sensitivity
+  gates work. This validates our own wiring and selectors against representative markup;
+  it does **not** replace a manual check against the live, authenticated LinkedIn feed
+  (which requires loading the unpacked extension in a logged-in Chrome).
+
 ### Project structure
 
 ```
