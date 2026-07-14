@@ -108,7 +108,7 @@ function round(value, places) {
 globalThis.LCV.detect = function detect(text) {
   const signals = [];
   if (typeof text !== 'string' || !text.trim()) {
-    return { score: 0, signals };
+    return { score: 0, signals, spans: [] };
   }
 
   const words = globalThis.LCV.wordCount(text);
@@ -195,5 +195,36 @@ globalThis.LCV.detect = function detect(text) {
     });
   }
 
-  return { score: Math.max(0, Math.min(100, Math.round(score))), signals };
+  // Flagged passages: the exact-cased substrings that fired a phrase/clause
+  // signal, for optional in-post highlighting by the content script. Structural
+  // signals (em-dash density, sentence uniformity, emoji bullets) have no single
+  // passage to point at, so they contribute no spans.
+  const spans = [];
+  const seenSpans = new Set();
+  function addSpan(snippet, reason) {
+    const trimmed = (snippet || '').trim();
+    if (trimmed.length < 3) return;
+    const key = `${trimmed}`;
+    if (seenSpans.has(key)) return;
+    seenSpans.add(key);
+    spans.push({ text: trimmed, reason });
+  }
+
+  for (const phrase of hits) {
+    let from = lower.indexOf(phrase);
+    while (from !== -1) {
+      addSpan(text.slice(from, from + phrase.length), 'Stock phrase');
+      from = lower.indexOf(phrase, from + phrase.length);
+    }
+  }
+  for (const re of NOT_X_BUT_Y) {
+    for (const match of text.matchAll(re)) addSpan(match[0], 'Contrastive “not X, it’s Y”');
+  }
+  for (const match of text.matchAll(RULE_OF_THREE)) addSpan(match[0], 'Rule-of-three list');
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    signals,
+    spans: spans.slice(0, 12),
+  };
 };

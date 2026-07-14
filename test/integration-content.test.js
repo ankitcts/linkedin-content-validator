@@ -50,13 +50,27 @@ function postMarkup(activityId, text) {
     </div>`;
 }
 
-function buildFeed(posts, deepCheckResponse) {
+function buildFeed(posts, deepCheckResponse, options = {}) {
   const html = `<!doctype html><html><body><main id="feed">
     ${posts.map((p, i) => postMarkup(String(i + 1), p)).join('\n')}
   </main></body></html>`;
 
   const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
+
+  // jsdom lacks the CSS Custom Highlight API; mock it so we can assert that
+  // flagged passages get highlighted via Ranges (no DOM mutation).
+  if (options.highlightApi) {
+    window.CSS = { highlights: new Map() };
+    window.Highlight = class Highlight {
+      constructor() {
+        this.ranges = [];
+      }
+      add(range) {
+        this.ranges.push(range);
+      }
+    };
+  }
 
   // jsdom has no IntersectionObserver — mock it and expose a manual trigger.
   const ioInstances = [];
@@ -176,4 +190,24 @@ test('does not score posts shorter than MIN_WORDS', async () => {
 
   const shortPost = window.document.querySelectorAll('.feed-shared-update-v2')[0];
   assert.equal(cardHost(shortPost), null, 'short post should be skipped');
+});
+
+test('highlights flagged passages in the post without mutating its text DOM', async () => {
+  const { window } = buildFeed([AI_POST], { score: 78, signals: [] }, { highlightApi: true });
+  await flush();
+  window.__fireIntersections();
+  await flush();
+
+  const highlight = window.CSS.highlights.get('lcv-ai-flag');
+  assert.ok(highlight, 'a highlight registry entry should be created');
+  assert.ok(highlight.ranges.length >= 1, 'at least one flagged passage should be highlighted');
+
+  // The page-level ::highlight() style is injected exactly once.
+  assert.ok(window.document.getElementById('lcv-highlight-style'), 'highlight style injected');
+
+  // Highlighting uses Ranges, so the post's own text node is neither wrapped
+  // nor split — LinkedIn's DOM is left intact.
+  const textEl = window.document.querySelector('.update-components-text');
+  assert.equal(textEl.childNodes.length, 1, 'post text node should not be wrapped/split');
+  assert.equal(textEl.textContent, AI_POST, 'post text content unchanged');
 });

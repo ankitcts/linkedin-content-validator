@@ -23,6 +23,10 @@ A two-stage detection pipeline keeps the card instant while still allowing a dee
    sent to a pluggable detection API. The embedded card upgrades in place
    (preliminary → verified).
 
+Flagged passages are also highlighted inline within the post via the CSS Custom
+Highlight API, which paints text ranges **without modifying LinkedIn's DOM** (so their
+markup and React state are left untouched); it degrades to a no-op where unsupported.
+
 See [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) for the full problem statement,
 product decisions, architecture, UI spec, roadmap, and guiding principles.
 

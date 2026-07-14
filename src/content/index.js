@@ -80,6 +80,13 @@ globalThis.LCV = globalThis.LCV || {};
     const host = LCV.renderCard(result, { preliminary: true });
     anchor.insertAdjacentElement('afterend', host);
 
+    // Paint the flagged passages inside the post itself (best-effort).
+    try {
+      highlightSpans(textEl, result.spans);
+    } catch {
+      // Highlighting must never break the card or the feed.
+    }
+
     requestDeepCheck(text, host);
   }
 
@@ -95,6 +102,65 @@ globalThis.LCV = globalThis.LCV || {};
       });
     } catch {
       // Extension context invalidated; keep the preliminary card.
+    }
+  }
+
+  // --- In-post passage highlighting ---------------------------------------
+  // Paints the detector's flagged passages using the CSS Custom Highlight API,
+  // which styles text ranges WITHOUT mutating the DOM — so LinkedIn's own
+  // markup/React is untouched and a feed re-render can't leave orphaned wrapper
+  // nodes behind. No-ops silently where the API is unavailable.
+  const HIGHLIGHT_NAME = 'lcv-ai-flag';
+  let highlight = null;
+
+  function highlightSupported() {
+    return (
+      typeof CSS !== 'undefined' &&
+      !!CSS.highlights &&
+      typeof Highlight !== 'undefined' &&
+      typeof document.createRange === 'function' &&
+      typeof document.createTreeWalker === 'function'
+    );
+  }
+
+  // Lazily create the shared Highlight registry entry and inject the page-level
+  // style for its ::highlight() pseudo (once).
+  function ensureHighlight() {
+    if (highlight) return highlight;
+    highlight = new Highlight();
+    CSS.highlights.set(HIGHLIGHT_NAME, highlight);
+    const style = document.createElement('style');
+    style.id = 'lcv-highlight-style';
+    style.textContent =
+      `::highlight(${HIGHLIGHT_NAME}){background-color:rgba(230,168,0,0.28);` +
+      `text-decoration:underline dotted rgba(180,120,0,0.9);}`;
+    (document.head || document.documentElement).append(style);
+    return highlight;
+  }
+
+  // Adds a Range over every occurrence of each flagged passage within `root`.
+  function highlightSpans(root, spans) {
+    if (!root || !Array.isArray(spans) || !spans.length || !highlightSupported()) return;
+    const needles = spans
+      .map((span) => span && span.text)
+      .filter((text) => typeof text === 'string' && text.length >= 3);
+    if (!needles.length) return;
+
+    const hl = ensureHighlight();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const hay = node.nodeValue;
+      if (!hay) continue;
+      for (const needle of needles) {
+        let idx = hay.indexOf(needle);
+        while (idx !== -1) {
+          const range = document.createRange();
+          range.setStart(node, idx);
+          range.setEnd(node, idx + needle.length);
+          hl.add(range);
+          idx = hay.indexOf(needle, idx + needle.length);
+        }
+      }
     }
   }
 

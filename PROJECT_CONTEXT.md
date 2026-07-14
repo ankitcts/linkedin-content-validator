@@ -102,7 +102,9 @@ background.js    Service worker. PROVIDER config (enabled/url/headers),
       map response in background.js) — on-demand or viewport-only scanning to
       control cost. Pluggable provider registry + disabled Pangram-style example
       already in place; needs a live key + verified request/response mapping.
-- [ ] Sentence-level highlighting of flagged passages inside the post
+- [x] Sentence-level highlighting of flagged passages inside the post
+      (CSS Custom Highlight API — paints Ranges without mutating LinkedIn's DOM;
+      detector emits exact-cased `spans`, content script highlights them)
 - [x] Options page: sensitivity threshold, provider key, on-demand vs auto mode
 - [ ] Icons + Chrome Web Store listing assets
 - [ ] v2 candidates: author-level reputation aggregation; X/Substack support
