@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build output / packaged extension
+dist/
+*.zip
+
+# Logs and OS cruft
+*.log
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

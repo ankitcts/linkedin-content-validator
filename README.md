@@ -26,6 +26,28 @@ A two-stage detection pipeline keeps the card instant while still allowing a dee
 See [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md) for the full problem statement,
 product decisions, architecture, UI spec, roadmap, and guiding principles.
 
+## Development
+
+Requires Node.js 20+ (see `.nvmrc`).
+
+```bash
+npm install        # install dev tooling (ESLint, Prettier)
+npm run lint       # lint with ESLint (flat config, browser + webextension globals)
+npm run format     # auto-format with Prettier
+npm test           # run tests (Node's built-in test runner)
+npm run package    # zip src/ into dist/ (manifest.json at archive root)
+```
+
+Extension source lives in `src/` (loaded unpacked in Chrome during development).
+
+### CI/CD
+
+- **CI** (`.github/workflows/ci.yml`) runs lint, format check, and tests on every
+  push to `main` and every pull request.
+- **Release** (`.github/workflows/release.yml`) packages the extension into a
+  versioned `.zip` and publishes a GitHub Release when a `v*` tag is pushed
+  (e.g. `git tag v0.1.0 && git push origin v0.1.0`).
+
 ## Status
 
 MVP skeleton stage. This repository is being scaffolded — see the roadmap in
