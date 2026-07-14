@@ -1,4 +1,4 @@
-/* Options page styles. TODO: flesh out alongside the settings UI. */
+/* Options page styles. */
 
 body {
   margin: 0;
@@ -15,7 +15,7 @@ body {
 .options__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .options__field {
@@ -29,4 +29,28 @@ body {
   flex-direction: row;
   align-items: center;
   gap: 8px;
+}
+
+.options__hint {
+  color: #56687a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.options__field input[type='password'] {
+  padding: 8px 10px;
+  border: 1px solid #d6d9dc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.options__field input[type='range'] {
+  width: 100%;
+}
+
+.options__status {
+  min-height: 1.2em;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #1a7f47;
 }

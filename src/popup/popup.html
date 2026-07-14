@@ -10,7 +10,15 @@
     <main class="popup">
       <h1 class="popup__title">Authenticity Notes</h1>
       <p class="popup__subtitle">AI-generation context for LinkedIn posts.</p>
-      <!-- TODO: on/off toggle, on-demand scan button, link to options. -->
+
+      <label class="popup__toggle">
+        <input type="checkbox" id="enabled" class="popup__checkbox" />
+        <span>Analyze posts as I scroll</span>
+      </label>
+
+      <button type="button" id="scan" class="popup__button">Scan visible posts now</button>
+
+      <button type="button" id="options" class="popup__link">Settings</button>
     </main>
     <script src="popup.js"></script>
   </body>

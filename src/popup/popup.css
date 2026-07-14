@@ -1,4 +1,4 @@
-/* Popup styles. TODO: flesh out alongside popup UI. */
+/* Popup styles. */
 
 body {
   margin: 0;
@@ -20,4 +20,61 @@ body {
   margin: 0;
   font-size: 13px;
   color: #56687a;
+}
+
+.popup__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.popup__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.popup__button {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid #0a66c2;
+  border-radius: 999px;
+  background: #0a66c2;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.popup__button:hover {
+  background: #08528f;
+  border-color: #08528f;
+}
+
+.popup__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.popup__link {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #0a66c2;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.popup__link:hover {
+  background: #eef3f8;
 }
