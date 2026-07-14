@@ -1,0 +1,208 @@
+/*
+ * Styles for the context card. Injected into the card's Shadow DOM so LinkedIn
+ * page styles cannot leak in or out. See PROJECT_CONTEXT.md §5 for the spec.
+ */
+
+:host {
+  all: initial;
+  display: block;
+}
+
+.lcv-card {
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 12px 14px;
+  border: 1px solid #d6d9dc;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1d2226;
+}
+
+/* Header: shield icon + framing text. */
+.lcv-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #56687a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lcv-shield {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #56687a;
+}
+
+.lcv-header__text {
+  min-width: 0;
+}
+
+/* Verdict chip + preliminary/verified state. */
+.lcv-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lcv-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.lcv-card[data-verdict='human'] .lcv-chip {
+  background: #e9f7ef;
+  color: #1a7f47;
+  border-color: #b7e4c7;
+}
+
+.lcv-card[data-verdict='assisted'] .lcv-chip {
+  background: #fdf4e3;
+  color: #9a6a00;
+  border-color: #f3d9a4;
+}
+
+.lcv-card[data-verdict='ai'] .lcv-chip {
+  background: #fdecec;
+  color: #b42318;
+  border-color: #f4c2be;
+}
+
+.lcv-state {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a97a4;
+}
+
+.lcv-card[data-state='verified'] .lcv-state {
+  color: #1a7f47;
+}
+
+/* Confidence bar. */
+.lcv-confidence {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.lcv-bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: #eef1f3;
+  overflow: hidden;
+}
+
+.lcv-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.lcv-card[data-verdict='human'] .lcv-bar__fill {
+  background: #1a7f47;
+}
+
+.lcv-card[data-verdict='assisted'] .lcv-bar__fill {
+  background: #d68f00;
+}
+
+.lcv-card[data-verdict='ai'] .lcv-bar__fill {
+  background: #d92d20;
+}
+
+.lcv-score {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #56687a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A preliminary card is visually softened until the deep check confirms it. */
+.lcv-card[data-state='preliminary'] .lcv-bar__fill {
+  opacity: 0.7;
+}
+
+/* "Why?" evidence disclosure. */
+.lcv-why {
+  margin-top: 10px;
+}
+
+.lcv-why__summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0a66c2;
+  list-style: none;
+}
+
+.lcv-why__summary::-webkit-details-marker {
+  display: none;
+}
+
+.lcv-why__summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 11px;
+  transition: transform 0.15s ease;
+}
+
+.lcv-why[open] .lcv-why__summary::before {
+  transform: rotate(90deg);
+}
+
+.lcv-signals {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lcv-signal {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #f4f6f8;
+  font-size: 13px;
+}
+
+.lcv-signal__label {
+  font-weight: 600;
+}
+
+.lcv-signal__detail {
+  display: block;
+  margin-top: 2px;
+  color: #56687a;
+}
+
+.lcv-signals--empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #56687a;
+}
+
+/* Always-visible disclaimer. */
+.lcv-disclaimer {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #eef1f3;
+  font-size: 12px;
+  color: #8a97a4;
+}

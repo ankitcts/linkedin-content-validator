@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Authenticity Notes for LinkedIn",
+  "version": "0.0.0",
+  "description": "Adds Community Notes-style AI-generation context cards below LinkedIn posts.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "background": {
+    "service_worker": "service-worker/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": [
+        "content/constants.js",
+        "content/selectors.js",
+        "content/detector.js",
+        "content/card.js",
+        "content/index.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/card.css"],
+      "matches": ["https://www.linkedin.com/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Authenticity Notes"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  }
+}
