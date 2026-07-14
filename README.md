@@ -40,6 +40,33 @@ npm run package    # zip src/ into dist/ (manifest.json at archive root)
 
 Extension source lives in `src/` (loaded unpacked in Chrome during development).
 
+### Project structure
+
+```
+src/
+  manifest.json           MV3 config; wires content scripts, service worker, UI
+  content/                Content scripts (classic, share the global `LCV` namespace)
+    constants.js          Verdict labels, thresholds, MIN_WORDS
+    selectors.js          LinkedIn DOM selectors (isolated fragile point)
+    detector.js           Stage-1 local heuristic scorer -> { score, signals }
+    card.js               Community Notes-style card (Shadow DOM)
+    card.css              Card styles (injected into the shadow root)
+    index.js              Entry: Mutation/Intersection observers, inject, Stage-2 request
+  service-worker/         MV3 background (ESM module)
+    index.js              Entry: Stage-2 deep-check message handler
+    providers.js          Pluggable detection-API config + response mapping
+    cache.js              Content-hash cache over chrome.storage.local
+    hash.js               SHA-256 helper (Web Crypto)
+  popup/                  Toolbar popup UI
+  options/                Settings page (sensitivity, provider key, scan mode)
+  assets/icons/           Extension icons (see README there)
+
+scripts/package.mjs       Zips src/ into a distributable extension archive
+test/                     Tests (Node built-in runner)
+```
+
+See `PROJECT_CONTEXT.md` §4 for how these components interact.
+
 ### CI/CD
 
 - **CI** (`.github/workflows/ci.yml`) runs lint, format check, and tests on every

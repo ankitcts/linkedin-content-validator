@@ -1,0 +1,23 @@
+/* Popup styles. TODO: flesh out alongside popup UI. */
+
+body {
+  margin: 0;
+  min-width: 260px;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1d2226;
+}
+
+.popup {
+  padding: 16px;
+}
+
+.popup__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.popup__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #56687a;
+}

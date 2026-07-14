@@ -1,0 +1,21 @@
+/*
+ * Styles for the context card. Injected into the card's Shadow DOM so LinkedIn
+ * page styles cannot leak in or out. See PROJECT_CONTEXT.md §5 for the spec.
+ * TODO: full card styling (bordered card, verdict chip, confidence bar, footer).
+ */
+
+:host {
+  all: initial;
+}
+
+.lcv-card {
+  box-sizing: border-box;
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid #d6d9dc;
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #1d2226;
+}

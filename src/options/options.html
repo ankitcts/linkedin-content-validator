@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authenticity Notes — Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="options">
+      <h1>Authenticity Notes — Settings</h1>
+
+      <!-- TODO: wire these controls to chrome.storage in options.js (§6). -->
+      <form class="options__form">
+        <label class="options__field">
+          <span>Sensitivity threshold</span>
+          <input type="range" min="0" max="100" value="70" disabled />
+        </label>
+
+        <label class="options__field">
+          <span>Detection provider API key</span>
+          <input type="password" placeholder="Stored locally, never in code" disabled />
+        </label>
+
+        <label class="options__field options__field--inline">
+          <input type="checkbox" disabled />
+          <span>On-demand scanning (instead of automatic)</span>
+        </label>
+      </form>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
