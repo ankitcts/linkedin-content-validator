@@ -33,7 +33,11 @@ async function readApiKey(provider) {
  * @returns {Promise<{ score: number, signals: Array<{ label: string, detail: string }> }>}
  */
 async function deepCheck(text) {
-  const hash = await sha256(text);
+  // Key the cache by provider + model too, so switching detection backends
+  // invalidates results scored by a previous model (rather than serving stale
+  // verdicts for the same post text).
+  const provider = PROVIDER || {};
+  const hash = await sha256(`${provider.id || ''}:${provider.model || ''}:${text}`);
 
   const cached = await getCached(hash);
   if (cached) return cached;
