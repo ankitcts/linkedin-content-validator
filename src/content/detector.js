@@ -65,7 +65,30 @@ const AI_PHRASES = [
   'let that sink in',
   'the result?',
   'the takeaway?',
+  'the takeaway',
   'read that again',
+  // Corporate / thought-leader "LinkedIn voice" tells (higher-precision, mostly
+  // multi-word to keep false positives low on casual human writing).
+  'is noteworthy',
+  'should be viewed as',
+  'emerging as',
+  'the reality is',
+  'make no mistake',
+  'the bottom line',
+  'more than just',
+  "this isn't just",
+  'now more than ever',
+  'in a world where',
+  'in an era where',
+  'is no longer optional',
+  'transforming the way',
+  'changing the game',
+  'the rise of',
+  'buckle up',
+  'plot twist',
+  'let me explain',
+  'what this means',
+  'mark my words',
 ];
 
 // Emoji / symbol characters commonly used to open a bullet line.
