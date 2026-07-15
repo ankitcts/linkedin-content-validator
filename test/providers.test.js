@@ -71,6 +71,16 @@ test('mapResponse: accepts a flat (non-nested) array too', () => {
   assert.equal(r.score, 30); // Fake == AI
 });
 
+test('mapResponse: AI / Human labels (fakespot model) -> AI score', () => {
+  const r = huggingfaceProvider.mapResponse([
+    [
+      { label: 'AI', score: 0.82 },
+      { label: 'Human', score: 0.18 },
+    ],
+  ]);
+  assert.equal(r.score, 82);
+});
+
 test('mapResponse: garbage / error payload degrades to neutral', () => {
   const r = huggingfaceProvider.mapResponse({ error: 'Model is currently loading' });
   assert.equal(r.score, NEUTRAL_RESULT.score);
