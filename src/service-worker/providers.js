@@ -111,14 +111,92 @@ export const pangramProvider = {
   },
 };
 
+// --- Hugging Face detector (free / open model) ------------------------------
+// Calls a real AI-text-detection model through the Hugging Face Inference API
+// (hf-inference provider). Free with a HF access token (read scope), which the
+// user pastes into the options page — never hardcoded (§7). Enabled by default:
+// with no token the service worker degrades to the local Stage-1 heuristic.
+const HF_MODEL = 'Hello-SimpleAI/chatgpt-detector-roberta';
+
+export const huggingfaceProvider = {
+  id: 'huggingface',
+  label: 'Hugging Face detector (free)',
+  enabled: true,
+  // chrome.storage.local key for the HF access token (set via the options page).
+  apiKeyStorageKey: 'hfToken',
+  model: HF_MODEL,
+  endpoint: `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`,
+
+  /**
+   * @param {string} text   the post body to classify
+   * @param {string} apiKey a Hugging Face access token (read scope)
+   * @returns {{ url: string, options: RequestInit }}
+   */
+  buildRequest(text, apiKey) {
+    return {
+      url: this.endpoint,
+      options: {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${apiKey}`,
+        },
+        // Cap length for latency; wait_for_model avoids a 503 on cold start.
+        body: JSON.stringify({
+          inputs: String(text).slice(0, 4000),
+          options: { wait_for_model: true },
+        }),
+      },
+    };
+  },
+
+  /**
+   * Map a HF text-classification response into { score, signals }.
+   * Shape: [[{ label, score }, ...]] (or [{ label, score }, ...]). Labels vary by
+   * model (Human/ChatGPT, Real/Fake, LABEL_0/LABEL_1), so we detect them by name.
+   * @param {unknown} raw
+   * @returns {{ score: number, signals: Array<{ label: string, detail: string }> }}
+   */
+  mapResponse(raw) {
+    const rows = Array.isArray(raw) ? (Array.isArray(raw[0]) ? raw[0] : raw) : [];
+    const scores = rows
+      .filter((r) => r && typeof r.label === 'string' && Number.isFinite(Number(r.score)))
+      .map((r) => ({ label: r.label, score: Number(r.score) }));
+    if (!scores.length) return { ...NEUTRAL_RESULT };
+
+    const aiRe = /chatgpt|\bai\b|fake|machine|generated|gpt|label[_-]?1/i;
+    const humanRe = /human|real|label[_-]?0/i;
+    const ai = scores.find((s) => aiRe.test(s.label));
+    const human = scores.find((s) => humanRe.test(s.label));
+
+    let aiProb;
+    if (ai) aiProb = ai.score;
+    else if (human) aiProb = 1 - human.score;
+    else aiProb = scores.length > 1 ? scores[1].score : scores[0].score; // assume 2nd = AI
+
+    const score = clampScore(aiProb * 100);
+    return {
+      score,
+      signals: [
+        {
+          label: 'AI-detection model',
+          detail: `Hugging Face detector: ${score}% AI-likelihood.`,
+        },
+      ],
+    };
+  },
+};
+
 // Registry of available providers, keyed by id. Add your own entry here.
 export const PROVIDERS = Object.freeze({
+  [huggingfaceProvider.id]: huggingfaceProvider,
   [pangramProvider.id]: pangramProvider,
 });
 
 // The active provider the service worker uses. Swap this to any PROVIDERS entry
-// to change detection backends. Disabled by default (§7).
-export const PROVIDER = pangramProvider;
+// to change detection backends. Defaults to the free Hugging Face detector; with
+// no token set it degrades gracefully to the local Stage-1 heuristic.
+export const PROVIDER = huggingfaceProvider;
 
 /**
  * Normalise a raw provider response into the app's { score, signals } shape,
