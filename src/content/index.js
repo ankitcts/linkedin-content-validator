@@ -4,8 +4,9 @@
 // Responsibilities:
 //   - MutationObserver on the feed to catch newly-rendered posts
 //   - IntersectionObserver (+200px margin) to trigger scoring as posts enter view
-//   - extract post text via LCV.SELECTORS, run LCV.detect() for the Stage-1 card
-//   - inject the card via LCV.renderCard() before the reaction bar
+//   - find post text via LCV.SELECTORS.postText (stable data-testid hook), run
+//     LCV.detect() for the Stage-1 card
+//   - inject the card via LCV.renderCard() as a block sibling under the post text
 //   - request a Stage-2 deep check from the service worker and upgrade the card
 globalThis.LCV = globalThis.LCV || {};
 
@@ -50,13 +51,11 @@ globalThis.LCV = globalThis.LCV || {};
     return text ? text.split(' ').length : 0;
   }
 
-  // Extracts, gates, scores, injects the Stage-1 card, and kicks off Stage-2.
-  function processPost(post) {
-    if (handled.has(post)) return;
-    handled.add(post);
-
-    const textEl = post.querySelector(SELECTORS.postText);
-    if (!textEl) return;
+  // Gates, scores, injects the Stage-1 card, and kicks off Stage-2 for one post.
+  // `textEl` is the post's body text element (SELECTORS.postText).
+  function processPost(textEl) {
+    if (!textEl || handled.has(textEl)) return;
+    handled.add(textEl);
 
     const text = normalize(textEl.textContent);
     if (wordCount(text) < MIN_WORDS) return;
@@ -74,7 +73,9 @@ globalThis.LCV = globalThis.LCV || {};
     // Stage-2 round-trip.
     if (Number(result.score) < settings.sensitivity) return;
 
-    const anchor = post.querySelector(SELECTORS.cardAnchor) || textEl;
+    // Anchor the card after the text's block-level ancestor (LinkedIn wraps the
+    // body in a <p>), so it lands as a block sibling under the post text.
+    const anchor = textEl.closest(SELECTORS.anchorBlock) || textEl;
     if (!anchor || !anchor.isConnected) return;
 
     const host = LCV.renderCard(result, { preliminary: true });
@@ -164,20 +165,21 @@ globalThis.LCV = globalThis.LCV || {};
     }
   }
 
-  // Registers any not-yet-observed posts with the IntersectionObserver.
+  // Registers any not-yet-observed post text elements with the
+  // IntersectionObserver (each is one textual feed post).
   function registerPosts(root) {
     const scope = root && root.querySelectorAll ? root : document;
-    scope.querySelectorAll(SELECTORS.post).forEach((post) => {
-      if (observed.has(post)) return;
-      observed.add(post);
-      io.observe(post);
+    scope.querySelectorAll(SELECTORS.postText).forEach((textEl) => {
+      if (observed.has(textEl)) return;
+      observed.add(textEl);
+      io.observe(textEl);
     });
   }
 
   // On-demand mode / popup "Scan now": score every currently-rendered post
   // regardless of viewport or scan mode.
   function scanNow() {
-    document.querySelectorAll(SELECTORS.post).forEach((post) => processPost(post));
+    document.querySelectorAll(SELECTORS.postText).forEach((textEl) => processPost(textEl));
   }
 
   // Debounced MutationObserver: LinkedIn injects posts continuously as the feed
