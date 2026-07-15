@@ -24,9 +24,24 @@
           <span>Hugging Face access token</span>
           <input type="password" id="apiKey" autocomplete="off" placeholder="hf_… (read scope)" />
           <small class="options__hint"
-            >Enables the Stage-2 deep check via a free Hugging Face AI-detection model. Create a
-            read-scope token at huggingface.co/settings/tokens. Stored locally in your browser,
-            never hardcoded or synced. Without a token, only the local heuristic runs.</small
+            >Powers the Stage-2 AI deep check AND the on-demand "Check facts" credibility analysis.
+            Create a read-scope token at huggingface.co/settings/tokens. Stored locally in your
+            browser, never hardcoded or synced. Without a token, only the local heuristic
+            runs.</small
+          >
+        </label>
+
+        <label class="options__field">
+          <span>Fact-check LLM model (optional)</span>
+          <input
+            type="text"
+            id="llmModel"
+            autocomplete="off"
+            placeholder="meta-llama/Llama-3.1-8B-Instruct"
+          />
+          <small class="options__hint"
+            >Hugging Face model used for the credibility analysis. Leave blank for the default. Free
+            LLM availability varies — if fact-checking fails, try another instruct model.</small
           >
         </label>
 

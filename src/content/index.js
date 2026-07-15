@@ -99,6 +99,9 @@ globalThis.LCV = globalThis.LCV || {};
     anchor.insertAdjacentElement('afterend', host);
     console.debug('[LCV] card injected — score', result.score);
 
+    // On-demand Stage-3 credibility check when the user clicks "Check facts".
+    host.addEventListener('lcv-factcheck', () => requestCredibility(text, host));
+
     // Paint the flagged passages inside the post itself (best-effort).
     try {
       highlightSpans(textEl, result.spans);
@@ -130,6 +133,23 @@ globalThis.LCV = globalThis.LCV || {};
       });
     } catch {
       // Extension context invalidated; keep the preliminary card.
+    }
+  }
+
+  // Stage-3: on-demand credibility / claim analysis (LLM + web evidence).
+  function requestCredibility(text, host) {
+    if (typeof host.lcvRenderCredibility !== 'function') return;
+    host.lcvRenderCredibility('loading');
+    try {
+      chrome.runtime.sendMessage({ type: 'credibility-check', text }, (response) => {
+        if (chrome.runtime.lastError || !response || response.unavailable) {
+          host.lcvRenderCredibility('error', response || {});
+          return;
+        }
+        host.lcvRenderCredibility('done', response);
+      });
+    } catch {
+      host.lcvRenderCredibility('error', {});
     }
   }
 

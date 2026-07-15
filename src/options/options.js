@@ -9,10 +9,12 @@
 // never hardcoded (see PROJECT_CONTEXT.md §7).
 const PREF_DEFAULTS = { sensitivity: 45, scanMode: 'auto' };
 const TOKEN_KEY = 'hfToken';
+const LLM_MODEL_KEY = 'llmModel';
 
 const sensitivityEl = document.getElementById('sensitivity');
 const sensitivityValueEl = document.getElementById('sensitivityValue');
 const apiKeyEl = document.getElementById('apiKey');
+const llmModelEl = document.getElementById('llmModel');
 const onDemandEl = document.getElementById('onDemand');
 const statusEl = document.getElementById('status');
 
@@ -35,8 +37,9 @@ chrome.storage.sync.get(PREF_DEFAULTS).then((stored) => {
   sensitivityValueEl.textContent = String(stored.sensitivity);
   onDemandEl.checked = stored.scanMode === 'on-demand';
 });
-chrome.storage.local.get({ [TOKEN_KEY]: '' }).then((stored) => {
+chrome.storage.local.get({ [TOKEN_KEY]: '', [LLM_MODEL_KEY]: '' }).then((stored) => {
   apiKeyEl.value = stored[TOKEN_KEY] || '';
+  llmModelEl.value = stored[LLM_MODEL_KEY] || '';
 });
 
 // Live-update the readout as the slider moves; persist when it settles.
@@ -49,6 +52,12 @@ sensitivityEl.addEventListener('change', () => {
 
 apiKeyEl.addEventListener('change', () => {
   chrome.storage.local.set({ [TOKEN_KEY]: apiKeyEl.value.trim() }).then(() => flashStatus('Saved'));
+});
+
+llmModelEl.addEventListener('change', () => {
+  chrome.storage.local
+    .set({ [LLM_MODEL_KEY]: llmModelEl.value.trim() })
+    .then(() => flashStatus('Saved'));
 });
 
 onDemandEl.addEventListener('change', () => {
