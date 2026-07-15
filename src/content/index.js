@@ -50,12 +50,19 @@ globalThis.LCV = globalThis.LCV || {};
     { rootMargin: '200px' },
   );
 
+  // Collapse horizontal whitespace but PRESERVE line breaks, so the detector's
+  // paragraph/emoji-line signals can see the post's structure. (Runs of blank
+  // lines are capped.)
   function normalize(text) {
-    return (text || '').replace(/\s+/g, ' ').trim();
+    return (text || '')
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/[ \t]*\n[ \t]*/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   function wordCount(text) {
-    return text ? text.split(' ').length : 0;
+    return text ? text.split(/\s+/).filter(Boolean).length : 0;
   }
 
   // Gates, scores, injects the Stage-1 card, and kicks off Stage-2 for one post.
@@ -64,7 +71,10 @@ globalThis.LCV = globalThis.LCV || {};
     if (!textEl || handled.has(textEl)) return;
     handled.add(textEl);
 
-    const text = normalize(textEl.textContent);
+    // innerText reflects rendered line breaks (<br>, block boundaries), which
+    // textContent drops; fall back to textContent where innerText is unavailable.
+    const raw = textEl.innerText || textEl.textContent || '';
+    const text = normalize(raw);
     if (wordCount(text) < MIN_WORDS) return;
 
     let result;

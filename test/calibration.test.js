@@ -49,6 +49,19 @@ const AI_STYLED = [
     'hard — it is about working smart.\n🚀 Embrace the journey.\n💡 Trust the process.\n' +
     '🙏 Stay humble, stay curious, and stay hungry.\nThe reality is, growth happens ' +
     'outside your comfort zone. Make no mistake: this is a game-changer. Let that sink in.',
+  // Real corporate "broetry" marketing post (captured from the live feed):
+  // one-line paragraphs, decorative emoji, hashtag cluster, engagement-bait CTA.
+  'Football has a unique way of bringing people together. 🎪\n\n' +
+    'As the world comes together to celebrate the games, we are celebrating the people ' +
+    'who make our team better every day.\n\n' +
+    'Across countries, cultures and roles, our people each bring something different.\n\n' +
+    'So we asked a simple question:\n\n' +
+    'If your role translated to a football organization, what position would you play?\n\n' +
+    'The answers are as diverse as the countries we call home, but they all point to one ' +
+    'thing: great teams succeed because everyone is committed to the role they play.\n\n' +
+    '⚽ Swipe to meet part of our global squad!\n\n' +
+    'What position would you play? Tell us in the comments. 👇\n\n' +
+    '#WorldCup2026 #PublicisSapient #FIFAWorldCup',
 ];
 
 test('casual human posts stay below the AI-assisted threshold (no false positives)', () => {

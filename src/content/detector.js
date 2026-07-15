@@ -89,6 +89,15 @@ const AI_PHRASES = [
   'let me explain',
   'what this means',
   'mark my words',
+  // Engagement-bait / CTA phrasing common in AI-assisted marketing posts.
+  'tell us in the comments',
+  'let us know in the comments',
+  'drop a comment',
+  'comment below',
+  'share your thoughts',
+  'what do you think?',
+  'tag someone who',
+  'double tap',
 ];
 
 // Emoji / symbol characters commonly used to open a bullet line.
@@ -215,6 +224,44 @@ globalThis.LCV.detect = function detect(text) {
     signals.push({
       label: 'Emoji-bullet structure',
       detail: `${bullets} emoji-led bullet lines`,
+    });
+  }
+
+  // 7. Emoji sprinkling ---------------------------------------------------
+  // Decorative emoji scattered through prose is a common AI / social-marketing
+  // tell (distinct from the bullet-list structure above).
+  const emoji = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
+  if (emoji >= 3) {
+    score += Math.min(14, emoji * 3);
+    signals.push({
+      label: 'Heavy emoji use',
+      detail: `${emoji} emoji sprinkled through the text`,
+    });
+  }
+
+  // 8. Hashtag stuffing ---------------------------------------------------
+  const hashtags = (text.match(/(?:^|\s)#[\p{L}0-9_]+/gu) || []).length;
+  if (hashtags >= 3) {
+    score += Math.min(12, hashtags * 4);
+    signals.push({
+      label: 'Hashtag cluster',
+      detail: `${hashtags} hashtags`,
+    });
+  }
+
+  // 9. "Broetry" one-line-paragraph structure -----------------------------
+  // The signature LinkedIn AI/influencer layout: many one-sentence paragraphs
+  // separated by blank lines. Needs the raw text with line breaks preserved.
+  const paragraphs = text
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const shortParas = paragraphs.filter((p) => globalThis.LCV.wordCount(p) <= 20).length;
+  if (paragraphs.length >= 5 && shortParas >= 4) {
+    score += Math.min(24, shortParas * 4);
+    signals.push({
+      label: 'One-line-paragraph style',
+      detail: `${shortParas} short single-line paragraphs (LinkedIn "broetry")`,
     });
   }
 
