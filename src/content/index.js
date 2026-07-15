@@ -28,8 +28,27 @@ globalThis.LCV = globalThis.LCV || {};
   // sensitivity 45 == the "possibly AI-assisted" threshold: the detector is
   // deliberately conservative (most AI-styled posts score ~45-55), so a higher
   // default would gate nearly every post and surface no cards.
-  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 45 };
+  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 45, theme: 'auto' };
   const settings = { ...DEFAULTS };
+
+  // Theme: 'auto' follows the OS/browser; 'light'/'dark' are explicit. The card's
+  // theme toggle flips to an explicit value; the popup can set any of the three.
+  function prefersDark() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    } catch {
+      return false;
+    }
+  }
+  function resolveTheme() {
+    if (settings.theme === 'light' || settings.theme === 'dark') return settings.theme;
+    return prefersDark() ? 'dark' : 'light';
+  }
+  function applyThemeToAll(theme) {
+    document.querySelectorAll('[data-lcv-card]').forEach((h) => {
+      if (typeof h.lcvSetTheme === 'function') h.lcvSetTheme(theme);
+    });
+  }
 
   // Posts we've registered with the IntersectionObserver, and posts we've
   // already fully handled (scored + possibly carded). WeakSets so detached DOM
@@ -95,12 +114,24 @@ globalThis.LCV = globalThis.LCV || {};
     const anchor = textEl.closest(SELECTORS.anchorBlock) || textEl;
     if (!anchor || !anchor.isConnected) return;
 
-    const host = LCV.renderCard(result, { state: 'preliminary' });
+    const host = LCV.renderCard(result, { state: 'preliminary', theme: resolveTheme() });
     anchor.insertAdjacentElement('afterend', host);
     console.debug('[LCV] card injected — score', result.score);
 
     // On-demand Stage-3 credibility check when the user clicks "Check facts".
     host.addEventListener('lcv-factcheck', () => requestCredibility(text, host));
+    // Theme toggle in the card header — flip to an explicit theme, persist, and
+    // apply to every card on the page.
+    host.addEventListener('lcv-theme-toggle', () => {
+      const next = resolveTheme() === 'dark' ? 'light' : 'dark';
+      settings.theme = next;
+      applyThemeToAll(next);
+      try {
+        chrome.storage.sync.set({ theme: next });
+      } catch {
+        // Extension context invalidated; the in-page theme still updated.
+      }
+    });
 
     // Paint the flagged passages inside the post itself (best-effort).
     try {
@@ -249,17 +280,31 @@ globalThis.LCV = globalThis.LCV || {};
     if (message && message.type === 'lcv-scan') scanNow();
   });
 
-  // Keep settings live so toggling enable/mode/sensitivity in the popup or
+  // Keep settings live so toggling enable/mode/sensitivity/theme in the popup or
   // options page takes effect without a page reload.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
     for (const [key, change] of Object.entries(changes)) {
       if (key in settings) settings[key] = change.newValue;
     }
+    if ('theme' in changes) applyThemeToAll(resolveTheme());
   });
+
+  // Follow the OS theme when in 'auto'.
+  try {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemThemeChange = () => {
+      if (settings.theme === 'auto') applyThemeToAll(resolveTheme());
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemThemeChange);
+    else if (mq.addListener) mq.addListener(onSystemThemeChange);
+  } catch {
+    // matchMedia unavailable; explicit theme still works.
+  }
 
   chrome.storage.sync.get(DEFAULTS).then((stored) => {
     Object.assign(settings, stored);
+    applyThemeToAll(resolveTheme());
   });
 
   // Catch posts already in the DOM at load (script runs at document_idle).

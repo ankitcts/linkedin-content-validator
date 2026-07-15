@@ -1,9 +1,7 @@
 // Community Notes-style context card, rendered into a Shadow DOM so LinkedIn's
-// CSS can't break it. See PROJECT_CONTEXT.md §5 for the full UI spec:
-//   - shield icon + "AI analysis added context to this post"
-//   - color-coded verdict chip + confidence bar
-//   - <details> "Why? N signal(s) detected" -> evidence list
-//   - always-visible disclaimer: probabilistic signal, not proof
+// CSS can't break it (and ours can't leak out). See PROJECT_CONTEXT.md §5.
+// Supports a light/dark theme via a `data-theme` attribute + CSS variables, with
+// a theme toggle in the card header.
 globalThis.LCV = globalThis.LCV || {};
 
 // Wrapped in an IIFE: content-script files share one lexical scope, so keeping
@@ -13,293 +11,207 @@ globalThis.LCV = globalThis.LCV || {};
   const LCV = globalThis.LCV;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  // Card styles, inlined into the Shadow DOM via a <style> element. Inlining (vs
-  // a <link> to chrome.runtime.getURL('content/card.css')) removes the runtime
-  // dependency entirely: no web_accessible_resources needed, and no
-  // "chrome-extension://invalid/" failures if the extension context is flaky.
+  // Card styles, inlined into the Shadow DOM via a <style> element. Colors are
+  // CSS custom properties defined on .lcv-card; the [data-theme='dark'] block
+  // swaps the token values, so light/dark is a pure variable switch.
   const CARD_CSS = `
-:host {
-  all: initial;
-  display: block;
-}
+:host { all: initial; display: block; }
+* { box-sizing: border-box; }
 .lcv-card {
-  box-sizing: border-box;
-  margin: 8px 0;
-  padding: 12px 14px;
-  border: 1px solid #d6d9dc;
-  border-radius: 8px;
-  background: #ffffff;
+  --bg: #ffffff;
+  --fg: #1d2226;
+  --muted: #5b6b7b;
+  --faint: #8a97a4;
+  --border: #e4e7eb;
+  --divider: #eceff2;
+  --track: #edf0f3;
+  --surface: #f5f7f9;
+  --accent: #0a66c2;
+  --accent-weak: #eaf1f9;
+  --human-bg: #e7f6ee; --human-fg: #14713f; --human-bar: #1a9d57;
+  --assisted-bg: #fdf3e2; --assisted-fg: #8a5d00; --assisted-bar: #e0930a;
+  --ai-bg: #fdecec; --ai-fg: #b42318; --ai-bar: #d92d20;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.05);
+
+  margin: 10px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
   font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
-  line-height: 1.4;
-  color: #1d2226;
+  line-height: 1.45;
+  color: var(--fg);
 }
-.lcv-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #56687a;
-  font-size: 13px;
-  font-weight: 600;
+.lcv-card[data-theme='dark'] {
+  --bg: #1b2027;
+  --fg: #e8eaed;
+  --muted: #9aa7b2;
+  --faint: #7c8895;
+  --border: #303840;
+  --divider: #29313a;
+  --track: #2b333c;
+  --surface: #232b33;
+  --accent: #6cb0f0;
+  --accent-weak: #1d2a39;
+  --human-bg: #14301f; --human-fg: #63d495; --human-bar: #34b26c;
+  --assisted-bg: #352a12; --assisted-fg: #e7b657; --assisted-bar: #e0930a;
+  --ai-bg: #3a1f1e; --ai-fg: #f28e86; --ai-bar: #e5564b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
-.lcv-shield {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  color: #56687a;
-}
+.lcv-header { display: flex; align-items: center; gap: 8px; }
+.lcv-shield { flex: 0 0 auto; width: 16px; height: 16px; color: var(--accent); }
 .lcv-header__text {
   min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
-.lcv-verdict {
-  display: flex;
+.lcv-theme {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
 }
+.lcv-theme:hover { background: var(--surface); color: var(--fg); }
+.lcv-theme svg { width: 15px; height: 15px; }
+.lcv-theme__sun { display: none; }
+.lcv-card[data-theme='dark'] .lcv-theme__moon { display: none; }
+.lcv-card[data-theme='dark'] .lcv-theme__sun { display: block; }
+.lcv-verdict { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .lcv-chip {
-  display: inline-block;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid transparent;
+  background: var(--surface);
+  color: var(--fg);
 }
-.lcv-card[data-verdict='human'] .lcv-chip {
-  background: #e9f7ef;
-  color: #1a7f47;
-  border-color: #b7e4c7;
+.lcv-chip::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
 }
-.lcv-card[data-verdict='assisted'] .lcv-chip {
-  background: #fdf4e3;
-  color: #9a6a00;
-  border-color: #f3d9a4;
-}
-.lcv-card[data-verdict='ai'] .lcv-chip {
-  background: #fdecec;
-  color: #b42318;
-  border-color: #f4c2be;
-}
+.lcv-card[data-verdict='human'] .lcv-chip { background: var(--human-bg); color: var(--human-fg); }
+.lcv-card[data-verdict='assisted'] .lcv-chip { background: var(--assisted-bg); color: var(--assisted-fg); }
+.lcv-card[data-verdict='ai'] .lcv-chip { background: var(--ai-bg); color: var(--ai-fg); }
 .lcv-state {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8a97a4;
+  letter-spacing: 0.06em;
+  color: var(--faint);
 }
-.lcv-card[data-state='verified'] .lcv-state {
-  color: #1a7f47;
-}
-.lcv-confidence {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
+.lcv-card[data-state='verified'] .lcv-state { color: var(--human-fg); }
+.lcv-confidence { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .lcv-bar {
   position: relative;
   flex: 1 1 auto;
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
-  background: #eef1f3;
+  background: var(--track);
   overflow: hidden;
 }
-.lcv-bar__fill {
-  height: 100%;
-  border-radius: inherit;
-  transition: width 0.2s ease;
-}
-.lcv-card[data-verdict='human'] .lcv-bar__fill {
-  background: #1a7f47;
-}
-.lcv-card[data-verdict='assisted'] .lcv-bar__fill {
-  background: #d68f00;
-}
-.lcv-card[data-verdict='ai'] .lcv-bar__fill {
-  background: #d92d20;
-}
-.lcv-score {
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: #56687a;
-  font-variant-numeric: tabular-nums;
-}
-.lcv-card[data-state='preliminary'] .lcv-bar__fill {
-  opacity: 0.7;
-}
-.lcv-why {
-  margin-top: 10px;
-}
+.lcv-bar__fill { height: 100%; border-radius: inherit; background: var(--muted); transition: width 0.25s ease; }
+.lcv-card[data-verdict='human'] .lcv-bar__fill { background: var(--human-bar); }
+.lcv-card[data-verdict='assisted'] .lcv-bar__fill { background: var(--assisted-bar); }
+.lcv-card[data-verdict='ai'] .lcv-bar__fill { background: var(--ai-bar); }
+.lcv-card[data-state='preliminary'] .lcv-bar__fill { opacity: 0.55; }
+.lcv-score { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lcv-why { margin-top: 12px; }
 .lcv-why__summary {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #0a66c2;
+  color: var(--accent);
   list-style: none;
+  display: inline-flex;
+  align-items: center;
 }
-.lcv-why__summary::-webkit-details-marker {
-  display: none;
-}
+.lcv-why__summary::-webkit-details-marker { display: none; }
 .lcv-why__summary::before {
   content: '▸';
   display: inline-block;
   margin-right: 6px;
-  font-size: 11px;
+  font-size: 10px;
   transition: transform 0.15s ease;
 }
-.lcv-why[open] .lcv-why__summary::before {
-  transform: rotate(90deg);
-}
-.lcv-signals {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.lcv-signal {
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: #f4f6f8;
-  font-size: 13px;
-}
-.lcv-signal__label {
-  font-weight: 600;
-}
-.lcv-signal__detail {
-  display: block;
-  margin-top: 2px;
-  color: #56687a;
-}
-.lcv-signals--empty {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #56687a;
-}
-.lcv-disclaimer {
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid #eef1f3;
-  font-size: 12px;
-  color: #8a97a4;
-}
-.lcv-fact {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid #eef1f3;
-}
+.lcv-why[open] .lcv-why__summary::before { transform: rotate(90deg); }
+.lcv-signals { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.lcv-signal { padding: 8px 10px; border-radius: 8px; background: var(--surface); font-size: 13px; }
+.lcv-signal__label { font-weight: 600; }
+.lcv-signal__detail { display: block; margin-top: 2px; color: var(--muted); }
+.lcv-signals--empty { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.lcv-disclaimer { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--divider); font-size: 12px; color: var(--faint); }
+.lcv-fact { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider); }
 .lcv-fact__btn {
   appearance: none;
-  border: 1px solid #0a66c2;
-  background: #eef3f8;
-  color: #0a66c2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: 999px;
   cursor: pointer;
 }
-.lcv-fact__btn:hover {
-  background: #e0ebf6;
-}
-.lcv-fact__btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.lcv-fact__body:not(:empty) {
-  margin-top: 10px;
-}
-.lcv-cred__msg {
-  margin: 0;
-  font-size: 13px;
-  color: #56687a;
-}
-.lcv-cred__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.lcv-fact__btn:hover { filter: brightness(0.98); }
+.lcv-fact__btn:disabled { opacity: 0.6; cursor: default; }
+.lcv-fact__body:not(:empty) { margin-top: 12px; }
+.lcv-cred__msg { margin: 0; font-size: 13px; color: var(--muted); }
+.lcv-cred__head { display: flex; align-items: center; gap: 8px; }
 .lcv-cred__chip {
-  display: inline-block;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid transparent;
-  background: #eef1f3;
-  color: #1d2226;
+  background: var(--surface);
+  color: var(--fg);
 }
-.lcv-fact__body[data-verdict='authentic'] .lcv-cred__chip {
-  background: #e9f7ef;
-  color: #1a7f47;
-  border-color: #b7e4c7;
-}
-.lcv-fact__body[data-verdict='mixed'] .lcv-cred__chip {
-  background: #fdf4e3;
-  color: #9a6a00;
-  border-color: #f3d9a4;
-}
-.lcv-fact__body[data-verdict='dicey'] .lcv-cred__chip {
-  background: #fdecec;
-  color: #b42318;
-  border-color: #f4c2be;
-}
-.lcv-cred__conf {
-  font-size: 12px;
-  color: #56687a;
-  font-variant-numeric: tabular-nums;
-}
-.lcv-cred__summary {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #1d2226;
-}
-.lcv-cred__claims {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.lcv-cred__claim {
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: #f4f6f8;
-  font-size: 13px;
-}
+.lcv-fact__body[data-verdict='authentic'] .lcv-cred__chip { background: var(--human-bg); color: var(--human-fg); }
+.lcv-fact__body[data-verdict='mixed'] .lcv-cred__chip { background: var(--assisted-bg); color: var(--assisted-fg); }
+.lcv-fact__body[data-verdict='dicey'] .lcv-cred__chip { background: var(--ai-bg); color: var(--ai-fg); }
+.lcv-cred__conf { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lcv-cred__summary { margin: 10px 0 0; font-size: 13px; color: var(--fg); }
+.lcv-cred__claims { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.lcv-cred__claim { padding: 8px 10px; border-radius: 8px; background: var(--surface); font-size: 13px; }
 .lcv-cred__status {
   display: inline-block;
   margin-right: 6px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  background: #e6eaee;
-  color: #56687a;
+  letter-spacing: 0.04em;
+  background: var(--track);
+  color: var(--muted);
 }
-.lcv-cred__claim[data-status='supported'] .lcv-cred__status {
-  background: #e9f7ef;
-  color: #1a7f47;
-}
-.lcv-cred__claim[data-status='disputed'] .lcv-cred__status {
-  background: #fdecec;
-  color: #b42318;
-}
-.lcv-cred__note {
-  display: block;
-  margin-top: 2px;
-  color: #56687a;
-}
-.lcv-cred__disclaimer {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #8a97a4;
-}
+.lcv-cred__claim[data-status='supported'] .lcv-cred__status { background: var(--human-bg); color: var(--human-fg); }
+.lcv-cred__claim[data-status='disputed'] .lcv-cred__status { background: var(--ai-bg); color: var(--ai-fg); }
+.lcv-cred__note { display: block; margin-top: 2px; color: var(--muted); }
+.lcv-cred__disclaimer { margin: 10px 0 0; font-size: 12px; color: var(--faint); }
 `;
 
   function clamp(value, min, max) {
@@ -311,6 +223,14 @@ globalThis.LCV = globalThis.LCV || {};
     const node = document.createElement(tag);
     if (className) node.className = className;
     if (text != null) node.textContent = text;
+    return node;
+  }
+
+  // SVG helper (built via createElementNS, never innerHTML, to respect any
+  // Trusted-Types policy on the page).
+  function svgNode(tag, attrs) {
+    const node = document.createElementNS(SVG_NS, tag);
+    for (const key of Object.keys(attrs)) node.setAttribute(key, attrs[key]);
     return node;
   }
 
@@ -329,18 +249,48 @@ globalThis.LCV = globalThis.LCV || {};
   }
 
   function shieldIcon() {
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'lcv-shield');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('fill', 'currentColor');
-    path.setAttribute(
-      'd',
-      'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4L11 13.2l4.1-4.1 1.4 1.4L11 16Z',
+    const svg = svgNode('svg', {
+      class: 'lcv-shield',
+      viewBox: '0 0 24 24',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
+    svg.append(
+      svgNode('path', {
+        fill: 'currentColor',
+        d: 'M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-1 14-3.5-3.5 1.4-1.4L11 13.2l4.1-4.1 1.4 1.4L11 16Z',
+      }),
     );
-    svg.appendChild(path);
+    return svg;
+  }
+
+  function sunIcon() {
+    const svg = svgNode('svg', {
+      class: 'lcv-theme__sun',
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '2',
+      'stroke-linecap': 'round',
+      'aria-hidden': 'true',
+    });
+    svg.append(svgNode('circle', { cx: '12', cy: '12', r: '4' }));
+    svg.append(
+      svgNode('path', {
+        d: 'M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19',
+      }),
+    );
+    return svg;
+  }
+
+  function moonIcon() {
+    const svg = svgNode('svg', {
+      class: 'lcv-theme__moon',
+      viewBox: '0 0 24 24',
+      fill: 'currentColor',
+      'aria-hidden': 'true',
+    });
+    svg.append(svgNode('path', { d: 'M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8Z' }));
     return svg;
   }
 
@@ -355,8 +305,9 @@ globalThis.LCV = globalThis.LCV || {};
   }
 
   // (Re)builds the AI-analysis content inside `body`; `container` carries the
-  // verdict/state data attributes (for styling). The fact-check section lives
-  // outside `body`, so it survives these repaints.
+  // verdict/state/theme data attributes (for styling). The fact-check section
+  // lives outside `body`, so it survives these repaints. paint() sets className
+  // and verdict/state only — it does not touch data-theme.
   function paint(container, body, result, state) {
     const score = clamp(Math.round(Number(result && result.score) || 0), 0, 100);
     const signals = Array.isArray(result && result.signals) ? result.signals : [];
@@ -372,9 +323,20 @@ globalThis.LCV = globalThis.LCV || {};
     body.replaceChildren();
 
     const header = el('div', 'lcv-header');
+    const themeBtn = el('button', 'lcv-theme');
+    themeBtn.type = 'button';
+    themeBtn.title = 'Toggle light / dark';
+    themeBtn.setAttribute('aria-label', 'Toggle light or dark theme');
+    themeBtn.append(sunIcon(), moonIcon());
+    themeBtn.addEventListener('click', () => {
+      themeBtn.dispatchEvent(
+        new CustomEvent('lcv-theme-toggle', { bubbles: true, composed: true }),
+      );
+    });
     header.append(
       shieldIcon(),
       el('span', 'lcv-header__text', 'AI analysis added context to this post'),
+      themeBtn,
     );
     body.append(header);
 
@@ -496,10 +458,10 @@ globalThis.LCV = globalThis.LCV || {};
 
   // Builds the card host for a result. Stage-1 renders a 'preliminary' card
   // immediately; call host.lcvUpdate(result, { state }) later to repaint it in
-  // place — 'verified' once a Stage-2 provider confirms, or 'local' when there
-  // is no provider and the Stage-1 heuristic is the final word.
+  // place. host.lcvSetTheme('light'|'dark') switches the theme in place.
   LCV.renderCard = function renderCard(result, options) {
     const state = (options && options.state) || 'preliminary';
+    const theme = options && options.theme === 'dark' ? 'dark' : 'light';
 
     const host = document.createElement('div');
     host.className = 'lcv-host';
@@ -511,8 +473,9 @@ globalThis.LCV = globalThis.LCV || {};
     style.textContent = CARD_CSS;
     shadow.append(style);
 
-    // container (.lcv-card, carries verdict/state) > body (repainted) + fact section.
+    // container (.lcv-card, carries verdict/state/theme) > body (repainted) + fact.
     const container = document.createElement('div');
+    container.dataset.theme = theme;
     const body = el('div', 'lcv-body');
     container.append(body);
     shadow.append(container);
@@ -537,6 +500,10 @@ globalThis.LCV = globalThis.LCV || {};
         nextResult || { score: 0, signals: [] },
         (nextOptions && nextOptions.state) || 'verified',
       );
+    };
+
+    host.lcvSetTheme = function lcvSetTheme(nextTheme) {
+      container.dataset.theme = nextTheme === 'dark' ? 'dark' : 'light';
     };
 
     // phase: 'loading' | 'error' | 'done'

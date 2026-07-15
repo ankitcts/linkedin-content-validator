@@ -1,10 +1,34 @@
-/* Popup styles. */
+/* Popup styles. Theme via :root[data-theme] + CSS variables (set by popup.js). */
+
+:root {
+  --bg: #ffffff;
+  --fg: #1d2226;
+  --muted: #56687a;
+  --border: #e4e7eb;
+  --surface: #f0f2f5;
+  --accent: #0a66c2;
+  --accent-weak: #eef3f8;
+}
+:root[data-theme='dark'] {
+  --bg: #1b2027;
+  --fg: #e8eaed;
+  --muted: #9aa7b2;
+  --border: #303840;
+  --surface: #232b33;
+  --accent: #6cb0f0;
+  --accent-weak: #1d2a39;
+}
+
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  min-width: 260px;
+  min-width: 280px;
   font-family: -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #1d2226;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 .popup {
@@ -19,7 +43,7 @@ body {
 .popup__subtitle {
   margin: 0;
   font-size: 13px;
-  color: #56687a;
+  color: var(--muted);
 }
 
 .popup__toggle {
@@ -37,14 +61,52 @@ body {
   cursor: pointer;
 }
 
+.popup__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.popup__row-label {
+  font-size: 14px;
+}
+
+.popup__seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.popup__seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.popup__seg-btn:hover {
+  background: var(--surface);
+}
+
+.popup__seg-btn[aria-pressed='true'] {
+  background: var(--accent);
+  color: #ffffff;
+}
+
 .popup__button {
   display: block;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 16px;
   padding: 8px 12px;
-  border: 1px solid #0a66c2;
+  border: 1px solid var(--accent);
   border-radius: 999px;
-  background: #0a66c2;
+  background: var(--accent);
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
@@ -52,8 +114,7 @@ body {
 }
 
 .popup__button:hover {
-  background: #08528f;
-  border-color: #08528f;
+  filter: brightness(0.96);
 }
 
 .popup__button:disabled {
@@ -69,12 +130,12 @@ body {
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: #0a66c2;
+  color: var(--accent);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .popup__link:hover {
-  background: #eef3f8;
+  background: var(--accent-weak);
 }
