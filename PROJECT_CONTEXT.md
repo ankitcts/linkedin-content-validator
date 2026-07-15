@@ -121,8 +121,16 @@ not this extension — an extension-detection probe. Harmless; not ours to fix._
       (CSS Custom Highlight API — paints Ranges without mutating LinkedIn's DOM;
       detector emits exact-cased `spans`, content script highlights them)
 - [x] Options page: sensitivity threshold, provider key, on-demand vs auto mode
+- [x] Stage-3: on-demand credibility / claim analysis (distinct from AI-detection).
+      A "Check facts" button on the card runs: free web evidence (Wikipedia
+      search, `search.js`) → pluggable LLM (`llm.js`, default a free HF instruct
+      model via the OpenAI-compatible router, swappable to Claude/OpenAI) →
+      structured credibility read with flagged claims (`credibility.js`). Framed
+      as an assistive signal, never a hard "fake" verdict. Free LLM/search are
+      limited (weak on recent/niche claims); the pipeline is built to upgrade.
 - [ ] Icons + Chrome Web Store listing assets
-- [ ] v2 candidates: author-level reputation aggregation; X/Substack support
+- [ ] v2 candidates: author-level reputation aggregation; X/Substack support;
+      real web-search grounding; better/paid LLM + detection provider
 
 ## 7. Constraints & Principles
 

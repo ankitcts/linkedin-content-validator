@@ -9,6 +9,7 @@
 import { sha256 } from './hash.js';
 import { getCached, setCached } from './cache.js';
 import { PROVIDER, mapResponse, NEUTRAL_RESULT } from './providers.js';
+import { analyzeCredibility } from './credibility.js';
 
 /**
  * Read the active provider's API key from chrome.storage.local. Returns '' when
@@ -72,15 +73,25 @@ async function deepCheck(text) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || message.type !== 'deep-check') {
-    return false;
+  if (!message) return false;
+
+  // Stage-2: AI-generation deep check.
+  if (message.type === 'deep-check') {
+    const text = typeof message.text === 'string' ? message.text : '';
+    deepCheck(text)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({ ...NEUTRAL_RESULT, unavailable: true }));
+    return true; // keep the channel open for the async response
   }
 
-  const text = typeof message.text === 'string' ? message.text : '';
-  deepCheck(text)
-    .then((result) => sendResponse(result))
-    .catch(() => sendResponse({ ...NEUTRAL_RESULT, unavailable: true }));
+  // Stage-3: on-demand credibility / claim analysis.
+  if (message.type === 'credibility-check') {
+    const text = typeof message.text === 'string' ? message.text : '';
+    analyzeCredibility(text)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({ unavailable: true, reason: 'error' }));
+    return true; // keep the channel open for the async response
+  }
 
-  // Keep the message channel open for the async sendResponse above.
-  return true;
+  return false;
 });
