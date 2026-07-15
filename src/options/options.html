@@ -21,16 +21,12 @@
         </label>
 
         <label class="options__field">
-          <span>Detection provider API key</span>
-          <input
-            type="password"
-            id="apiKey"
-            autocomplete="off"
-            placeholder="Stored locally, never in code"
-          />
+          <span>Hugging Face access token</span>
+          <input type="password" id="apiKey" autocomplete="off" placeholder="hf_… (read scope)" />
           <small class="options__hint"
-            >Used for the Stage-2 deep check. Kept in your browser storage; never hardcoded in the
-            extension.</small
+            >Enables the Stage-2 deep check via a free Hugging Face AI-detection model. Create a
+            read-scope token at huggingface.co/settings/tokens. Stored locally in your browser,
+            never hardcoded or synced. Without a token, only the local heuristic runs.</small
           >
         </label>
 

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "description": "Adds Community Notes-style AI-generation context cards below LinkedIn posts.",
   "permissions": ["storage"],
-  "host_permissions": ["https://www.linkedin.com/*"],
+  "host_permissions": ["https://www.linkedin.com/*", "https://router.huggingface.co/*"],
   "background": {
     "service_worker": "service-worker/index.js",
     "type": "module"

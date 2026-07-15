@@ -1,11 +1,14 @@
-// Options page script. Loads and persists settings via chrome.storage.sync so
-// they are shared with the popup, content script, and service worker:
-//   - sensitivity: minimum AI-likelihood (0-100) before a card is surfaced
-//   - apiKey: Stage-2 detection provider key (kept in storage, never in code)
-//   - scanMode: 'auto' (score as you scroll) vs 'on-demand' (popup-triggered)
-// Settings auto-save on change (see PROJECT_CONTEXT.md §6, §7).
-
-const DEFAULTS = { sensitivity: 45, apiKey: '', scanMode: 'auto' };
+// Options page script.
+//
+// Preferences (sensitivity, scanMode) live in chrome.storage.sync so they are
+// shared with the popup and content script and roam across devices.
+//
+// The Hugging Face access token is different: the Stage-2 service worker reads
+// it from chrome.storage.LOCAL under the active provider's key ('hfToken'), and
+// a credential shouldn't sync across devices — so it's stored locally only and
+// never hardcoded (see PROJECT_CONTEXT.md §7).
+const PREF_DEFAULTS = { sensitivity: 45, scanMode: 'auto' };
+const TOKEN_KEY = 'hfToken';
 
 const sensitivityEl = document.getElementById('sensitivity');
 const sensitivityValueEl = document.getElementById('sensitivityValue');
@@ -22,15 +25,18 @@ function flashStatus(message) {
   }, 1500);
 }
 
-function save(partial) {
+function savePref(partial) {
   chrome.storage.sync.set(partial).then(() => flashStatus('Saved'));
 }
 
-chrome.storage.sync.get(DEFAULTS).then((stored) => {
+// Load preferences (sync) and the token (local).
+chrome.storage.sync.get(PREF_DEFAULTS).then((stored) => {
   sensitivityEl.value = String(stored.sensitivity);
   sensitivityValueEl.textContent = String(stored.sensitivity);
-  apiKeyEl.value = stored.apiKey || '';
   onDemandEl.checked = stored.scanMode === 'on-demand';
+});
+chrome.storage.local.get({ [TOKEN_KEY]: '' }).then((stored) => {
+  apiKeyEl.value = stored[TOKEN_KEY] || '';
 });
 
 // Live-update the readout as the slider moves; persist when it settles.
@@ -38,13 +44,13 @@ sensitivityEl.addEventListener('input', () => {
   sensitivityValueEl.textContent = sensitivityEl.value;
 });
 sensitivityEl.addEventListener('change', () => {
-  save({ sensitivity: Number(sensitivityEl.value) });
+  savePref({ sensitivity: Number(sensitivityEl.value) });
 });
 
 apiKeyEl.addEventListener('change', () => {
-  save({ apiKey: apiKeyEl.value.trim() });
+  chrome.storage.local.set({ [TOKEN_KEY]: apiKeyEl.value.trim() }).then(() => flashStatus('Saved'));
 });
 
 onDemandEl.addEventListener('change', () => {
-  save({ scanMode: onDemandEl.checked ? 'on-demand' : 'auto' });
+  savePref({ scanMode: onDemandEl.checked ? 'on-demand' : 'auto' });
 });

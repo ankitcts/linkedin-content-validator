@@ -109,10 +109,14 @@ not this extension — an extension-detection probe. Harmless; not ours to fix._
       hashed class names; selectors reworked to the stable `data-testid` hooks and
       pinned by a real-markup integration test. (Loading unpacked in a logged-in
       browser for a final visual check is still worthwhile.)
-- [ ] Wire Stage-2 to a real detection API (candidate: Pangram, $0.05/1k words;
-      map response in background.js) — on-demand or viewport-only scanning to
-      control cost. Pluggable provider registry + disabled Pangram-style example
-      already in place; needs a live key + verified request/response mapping.
+- [x] Wire Stage-2 to a real detection model — done 2026-07: default provider is
+      a free Hugging Face AI-text detector (`Hello-SimpleAI/chatgpt-detector-roberta`
+      via the hf-inference router), keyed by a HF token set in the options page
+      (stored in `chrome.storage.local`, never hardcoded). Response mapping is
+      unit-tested; with no token the pipeline degrades to the local Stage-1
+      heuristic. Pangram remains available in the provider registry as a paid
+      alternative. (Live call not exercisable from the build sandbox — the proxy
+      blocks huggingface.co — so verify in-browser with a real token.)
 - [x] Sentence-level highlighting of flagged passages inside the post
       (CSS Custom Highlight API — paints Ranges without mutating LinkedIn's DOM;
       detector emits exact-cased `spans`, content script highlights them)

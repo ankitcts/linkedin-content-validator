@@ -89,6 +89,15 @@ const AI_PHRASES = [
   'let me explain',
   'what this means',
   'mark my words',
+  // Engagement-bait / CTA phrasing common in AI-assisted marketing posts.
+  'tell us in the comments',
+  'let us know in the comments',
+  'drop a comment',
+  'comment below',
+  'share your thoughts',
+  'what do you think?',
+  'tag someone who',
+  'double tap',
 ];
 
 // Emoji / symbol characters commonly used to open a bullet line.
@@ -104,6 +113,62 @@ const NOT_X_BUT_Y = [
 // "a, b, and c" (or "…or c") triadic list — the rule-of-three tell.
 const RULE_OF_THREE =
   /\b[\w'’-]+(?:\s+[\w'’-]+){0,3},\s+[\w'’-]+(?:\s+[\w'’-]+){0,3},\s+(?:and|or)\s+[\w'’-]+/gi;
+
+// Formal discourse connectives / transitions. Dense use signals the balanced,
+// essay-like flow characteristic of LLM prose (a language/discourse feature, not
+// just a stock phrase).
+const TRANSITIONS = [
+  'however',
+  'moreover',
+  'furthermore',
+  'additionally',
+  'consequently',
+  'therefore',
+  'thus',
+  'hence',
+  'nevertheless',
+  'nonetheless',
+  'subsequently',
+  'accordingly',
+  'notably',
+  'importantly',
+  'ultimately',
+  'in addition',
+  'on the other hand',
+  'in conclusion',
+  'as a result',
+  'for instance',
+  'in particular',
+  'that being said',
+  'with that said',
+  'it is worth noting',
+  'in essence',
+  'by contrast',
+  'in summary',
+  'to summarize',
+  'first and foremost',
+];
+
+// Hedging / qualifier phrases — LLMs pepper prose with cautious qualifiers.
+const HEDGES = [
+  'arguably',
+  'generally',
+  'typically',
+  'tends to',
+  'can be',
+  'may be',
+  'could be',
+  'relatively',
+  'somewhat',
+  'essentially',
+  'fundamentally',
+  'largely',
+  'broadly',
+  'in many ways',
+  'to some extent',
+  'more often than not',
+  'in general',
+];
 
 // Count words (whitespace-delimited, non-empty tokens). Exposed for callers
 // that gate on LCV.MIN_WORDS before scoring.
@@ -216,6 +281,95 @@ globalThis.LCV.detect = function detect(text) {
       label: 'Emoji-bullet structure',
       detail: `${bullets} emoji-led bullet lines`,
     });
+  }
+
+  // 7. Emoji sprinkling ---------------------------------------------------
+  // Decorative emoji scattered through prose is a common AI / social-marketing
+  // tell (distinct from the bullet-list structure above).
+  const emoji = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
+  if (emoji >= 3) {
+    score += Math.min(14, emoji * 3);
+    signals.push({
+      label: 'Heavy emoji use',
+      detail: `${emoji} emoji sprinkled through the text`,
+    });
+  }
+
+  // 8. Hashtag stuffing ---------------------------------------------------
+  const hashtags = (text.match(/(?:^|\s)#[\p{L}0-9_]+/gu) || []).length;
+  if (hashtags >= 3) {
+    score += Math.min(12, hashtags * 4);
+    signals.push({
+      label: 'Hashtag cluster',
+      detail: `${hashtags} hashtags`,
+    });
+  }
+
+  // 9. "Broetry" one-line-paragraph structure -----------------------------
+  // The signature LinkedIn AI/influencer layout: many one-sentence paragraphs
+  // separated by blank lines. Needs the raw text with line breaks preserved.
+  const paragraphs = text
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const shortParas = paragraphs.filter((p) => globalThis.LCV.wordCount(p) <= 20).length;
+  if (paragraphs.length >= 5 && shortParas >= 4) {
+    score += Math.min(24, shortParas * 4);
+    signals.push({
+      label: 'One-line-paragraph style',
+      detail: `${shortParas} short single-line paragraphs (LinkedIn "broetry")`,
+    });
+  }
+
+  // --- Language & discourse analysis (how AI vs human prose differs) --------
+  // Count occurrences of any phrase in `list` as whole words/phrases.
+  function countMarkers(list) {
+    let total = 0;
+    for (const phrase of list) {
+      const re = new RegExp(`\\b${phrase.replace(/\s+/g, '\\s+')}\\b`, 'gi');
+      total += (text.match(re) || []).length;
+    }
+    return total;
+  }
+
+  // 10. Formal transition / discourse-marker density ----------------------
+  // Balanced, essay-like connective flow ("however… moreover… therefore…") is a
+  // strong LLM tell, especially dense in short social copy.
+  const transitions = countMarkers(TRANSITIONS);
+  if (transitions >= 2) {
+    score += Math.min(16, transitions * 5);
+    signals.push({
+      label: 'Formal transitions',
+      detail: `${transitions} discourse connectives (however, moreover, therefore …)`,
+    });
+  }
+
+  // 11. Hedging / qualifier density ---------------------------------------
+  const hedges = countMarkers(HEDGES);
+  if (hedges >= 3) {
+    score += Math.min(12, hedges * 3);
+    signals.push({
+      label: 'Hedged qualifiers',
+      detail: `${hedges} hedging phrases (typically, generally, tends to …)`,
+    });
+  }
+
+  // 12. Repeated sentence openers (parallelism) ---------------------------
+  // LLMs often begin consecutive sentences with the same word/structure.
+  if (sentences.length >= 4) {
+    const openerCounts = {};
+    for (const s of sentences) {
+      const opener = (s.trim().split(/\s+/)[0] || '').toLowerCase().replace(/[^\p{L}]/gu, '');
+      if (opener) openerCounts[opener] = (openerCounts[opener] || 0) + 1;
+    }
+    const maxRepeat = Math.max(0, ...Object.values(openerCounts));
+    if (maxRepeat >= 3) {
+      score += Math.min(12, maxRepeat * 4);
+      signals.push({
+        label: 'Repeated sentence openers',
+        detail: `${maxRepeat} sentences start with the same word (parallelism)`,
+      });
+    }
   }
 
   // Flagged passages: the exact-cased substrings that fired a phrase/clause
