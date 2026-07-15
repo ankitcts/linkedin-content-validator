@@ -116,11 +116,16 @@ export const pangramProvider = {
 // (hf-inference provider). Free with a HF access token (read scope), which the
 // user pastes into the options page — never hardcoded (§7). Enabled by default:
 // with no token the service worker degrades to the local Stage-1 heuristic.
-const HF_MODEL = 'Hello-SimpleAI/chatgpt-detector-roberta';
+//
+// Model: a general modern AI-text detector (labels Human/AI). Preferred over the
+// older HC3 ChatGPT-Q&A detector, which misjudged out-of-distribution marketing
+// copy as human. Still a free model — imperfect on short social posts; swap to
+// Pangram (paid) for best accuracy.
+const HF_MODEL = 'fakespot-ai/roberta-base-ai-text-detection-v1';
 
 export const huggingfaceProvider = {
   id: 'huggingface',
-  label: 'Hugging Face detector (free)',
+  label: 'Hugging Face AI-text detector (free)',
   enabled: true,
   // chrome.storage.local key for the HF access token (set via the options page).
   apiKeyStorageKey: 'hfToken',
