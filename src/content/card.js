@@ -229,20 +229,29 @@ globalThis.LCV = globalThis.LCV || {};
     return svg;
   }
 
-  // (Re)builds the card body inside `card` for a given result. Called for the
-  // preliminary Stage-1 card and again to upgrade it in place to verified.
-  function paint(card, result, { preliminary }) {
+  // Human label for each card state:
+  //   preliminary — instant Stage-1 result, Stage-2 deep check still pending
+  //   verified    — confirmed by a Stage-2 detection provider
+  //   local       — settled on the Stage-1 heuristic (no Stage-2 provider set)
+  function stateLabel(state) {
+    if (state === 'verified') return 'Verified';
+    if (state === 'local') return 'Local';
+    return 'Preliminary';
+  }
+
+  // (Re)builds the card body inside `card` for a given result and state.
+  function paint(card, result, state) {
     const score = clamp(Math.round(Number(result && result.score) || 0), 0, 100);
     const signals = Array.isArray(result && result.signals) ? result.signals : [];
     const verdict = verdictFor(score);
 
-    // Preserve the "Why?" expanded state across a preliminary -> verified upgrade.
+    // Preserve the "Why?" expanded state across a re-paint.
     const existing = card.querySelector('.lcv-why');
     const wasOpen = existing ? existing.open : false;
 
     card.className = 'lcv-card';
     card.dataset.verdict = verdict.key;
-    card.dataset.state = preliminary ? 'preliminary' : 'verified';
+    card.dataset.state = state;
     card.replaceChildren();
 
     const header = el('div', 'lcv-header');
@@ -255,7 +264,7 @@ globalThis.LCV = globalThis.LCV || {};
     const verdictRow = el('div', 'lcv-verdict');
     verdictRow.append(
       el('span', 'lcv-chip', verdict.label),
-      el('span', 'lcv-state', preliminary ? 'Preliminary' : 'Verified'),
+      el('span', 'lcv-state', stateLabel(state)),
     );
     card.append(verdictRow);
 
@@ -301,11 +310,12 @@ globalThis.LCV = globalThis.LCV || {};
     );
   }
 
-  // Builds the card host for a result. Stage-1 renders a preliminary card
-  // immediately; call host.lcvUpdate(result) later to upgrade it in place
-  // (preliminary -> verified) when the Stage-2 deep check returns.
+  // Builds the card host for a result. Stage-1 renders a 'preliminary' card
+  // immediately; call host.lcvUpdate(result, { state }) later to repaint it in
+  // place — 'verified' once a Stage-2 provider confirms, or 'local' when there
+  // is no provider and the Stage-1 heuristic is the final word.
   LCV.renderCard = function renderCard(result, options) {
-    const preliminary = !!(options && options.preliminary);
+    const state = (options && options.state) || 'preliminary';
 
     const host = document.createElement('div');
     host.className = 'lcv-host';
@@ -320,12 +330,14 @@ globalThis.LCV = globalThis.LCV || {};
     const card = document.createElement('div');
     shadow.append(card);
 
-    paint(card, result || { score: 0, signals: [] }, { preliminary });
+    paint(card, result || { score: 0, signals: [] }, state);
 
     host.lcvUpdate = function lcvUpdate(nextResult, nextOptions) {
-      paint(card, nextResult || { score: 0, signals: [] }, {
-        preliminary: !!(nextOptions && nextOptions.preliminary),
-      });
+      paint(
+        card,
+        nextResult || { score: 0, signals: [] },
+        (nextOptions && nextOptions.state) || 'verified',
+      );
     };
 
     return host;

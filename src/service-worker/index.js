@@ -41,12 +41,12 @@ async function deepCheck(text) {
   // No usable provider -> neutral, and don't cache: a later enable/keying
   // should re-check this text rather than resolve to the neutral placeholder.
   if (!PROVIDER || !PROVIDER.enabled) {
-    return { ...NEUTRAL_RESULT };
+    return { ...NEUTRAL_RESULT, unavailable: true };
   }
 
   const apiKey = await readApiKey(PROVIDER);
   if (!apiKey) {
-    return { ...NEUTRAL_RESULT };
+    return { ...NEUTRAL_RESULT, unavailable: true };
   }
 
   let result;
@@ -54,12 +54,12 @@ async function deepCheck(text) {
     const { url, options } = PROVIDER.buildRequest(text, apiKey);
     const response = await fetch(url, options);
     if (!response.ok) {
-      return { ...NEUTRAL_RESULT };
+      return { ...NEUTRAL_RESULT, unavailable: true };
     }
     const raw = await response.json();
     result = mapResponse(raw);
   } catch {
-    return { ...NEUTRAL_RESULT };
+    return { ...NEUTRAL_RESULT, unavailable: true };
   }
 
   // Only a genuine provider result is cached (never re-bill the same text §7).
@@ -75,7 +75,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const text = typeof message.text === 'string' ? message.text : '';
   deepCheck(text)
     .then((result) => sendResponse(result))
-    .catch(() => sendResponse({ ...NEUTRAL_RESULT }));
+    .catch(() => sendResponse({ ...NEUTRAL_RESULT, unavailable: true }));
 
   // Keep the message channel open for the async sendResponse above.
   return true;

@@ -85,7 +85,7 @@ globalThis.LCV = globalThis.LCV || {};
     const anchor = textEl.closest(SELECTORS.anchorBlock) || textEl;
     if (!anchor || !anchor.isConnected) return;
 
-    const host = LCV.renderCard(result, { preliminary: true });
+    const host = LCV.renderCard(result, { state: 'preliminary' });
     anchor.insertAdjacentElement('afterend', host);
     console.debug('[LCV] card injected — score', result.score);
 
@@ -96,17 +96,26 @@ globalThis.LCV = globalThis.LCV || {};
       // Highlighting must never break the card or the feed.
     }
 
-    requestDeepCheck(text, host);
+    requestDeepCheck(text, host, result);
   }
 
-  // Stage-2: ask the service worker for a deep check and upgrade the card in
-  // place. Failures (worker asleep/invalidated) leave the preliminary card as-is.
-  function requestDeepCheck(text, host) {
+  // Stage-2: ask the service worker for a deep check and settle the card.
+  //   - real provider result  -> repaint as 'verified' with the provider verdict
+  //   - no provider / failure  -> keep the Stage-1 heuristic, settle as 'local'
+  // Crucially we do NOT overwrite the informative Stage-1 verdict with the
+  // service worker's neutral placeholder when no provider is configured.
+  function requestDeepCheck(text, host, localResult) {
+    const settleLocal = () => {
+      if (typeof host.lcvUpdate === 'function') host.lcvUpdate(localResult, { state: 'local' });
+    };
     try {
       chrome.runtime.sendMessage({ type: 'deep-check', text }, (response) => {
-        if (chrome.runtime.lastError || !response) return;
+        if (chrome.runtime.lastError || !response || response.unavailable) {
+          settleLocal();
+          return;
+        }
         if (typeof host.lcvUpdate === 'function') {
-          host.lcvUpdate(response, { preliminary: false });
+          host.lcvUpdate(response, { state: 'verified' });
         }
       });
     } catch {

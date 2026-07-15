@@ -193,6 +193,28 @@ test('injects an evidence card for an AI-looking post and upgrades it via Stage-
   assert.equal(sentMessages[0].type, 'deep-check');
 });
 
+test('keeps the Stage-1 verdict when Stage-2 has no provider (no neutral overwrite)', async () => {
+  // The service worker with no configured provider replies with the neutral
+  // fallback flagged unavailable. The card must NOT collapse to that 50/0 —
+  // it settles as 'local' and keeps the Stage-1 score and evidence.
+  const { window } = buildFeed([AI_POST], { unavailable: true, score: 50, signals: [] });
+  await flush();
+  window.__fireIntersections();
+  await flush();
+
+  const card = cardHost(posts(window)[0]).shadowRoot.querySelector('.lcv-card');
+  assert.equal(card.dataset.state, 'local', 'settles as local, not verified');
+  assert.ok(
+    card.querySelectorAll('.lcv-signal').length >= 1,
+    'keeps the Stage-1 evidence signals rather than the empty neutral result',
+  );
+  assert.notEqual(
+    card.querySelector('.lcv-score').textContent,
+    '50% AI-likelihood',
+    'shows the real Stage-1 score, not the neutral 50',
+  );
+});
+
 test('cards a real, polished LinkedIn post captured from the live feed', async () => {
   const { window, sentMessages } = buildFeed([REAL_POST], { score: 64, signals: [] });
   await flush();
