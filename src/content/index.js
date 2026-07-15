@@ -17,11 +17,18 @@ globalThis.LCV = globalThis.LCV || {};
   if (LCV.__initialized) return;
   LCV.__initialized = true;
 
+  // One-line heartbeat so it's obvious in the console whether the content script
+  // loaded (distinct from LinkedIn's own noise; grep the console for "[LCV]").
+  console.info('[LCV] Authenticity Notes: content script active');
+
   const SELECTORS = LCV.SELECTORS;
   const MIN_WORDS = LCV.MIN_WORDS || 40;
 
   // User settings mirrored from chrome.storage.sync (written by popup/options).
-  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 70 };
+  // sensitivity 45 == the "possibly AI-assisted" threshold: the detector is
+  // deliberately conservative (most AI-styled posts score ~45-55), so a higher
+  // default would gate nearly every post and surface no cards.
+  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 45 };
   const settings = { ...DEFAULTS };
 
   // Posts we've registered with the IntersectionObserver, and posts we've
@@ -78,8 +85,9 @@ globalThis.LCV = globalThis.LCV || {};
     const anchor = textEl.closest(SELECTORS.anchorBlock) || textEl;
     if (!anchor || !anchor.isConnected) return;
 
-    const host = LCV.renderCard(result, { preliminary: true });
+    const host = LCV.renderCard(result, { state: 'preliminary' });
     anchor.insertAdjacentElement('afterend', host);
+    console.debug('[LCV] card injected — score', result.score);
 
     // Paint the flagged passages inside the post itself (best-effort).
     try {
@@ -88,17 +96,26 @@ globalThis.LCV = globalThis.LCV || {};
       // Highlighting must never break the card or the feed.
     }
 
-    requestDeepCheck(text, host);
+    requestDeepCheck(text, host, result);
   }
 
-  // Stage-2: ask the service worker for a deep check and upgrade the card in
-  // place. Failures (worker asleep/invalidated) leave the preliminary card as-is.
-  function requestDeepCheck(text, host) {
+  // Stage-2: ask the service worker for a deep check and settle the card.
+  //   - real provider result  -> repaint as 'verified' with the provider verdict
+  //   - no provider / failure  -> keep the Stage-1 heuristic, settle as 'local'
+  // Crucially we do NOT overwrite the informative Stage-1 verdict with the
+  // service worker's neutral placeholder when no provider is configured.
+  function requestDeepCheck(text, host, localResult) {
+    const settleLocal = () => {
+      if (typeof host.lcvUpdate === 'function') host.lcvUpdate(localResult, { state: 'local' });
+    };
     try {
       chrome.runtime.sendMessage({ type: 'deep-check', text }, (response) => {
-        if (chrome.runtime.lastError || !response) return;
+        if (chrome.runtime.lastError || !response || response.unavailable) {
+          settleLocal();
+          return;
+        }
         if (typeof host.lcvUpdate === 'function') {
-          host.lcvUpdate(response, { preliminary: false });
+          host.lcvUpdate(response, { state: 'verified' });
         }
       });
     } catch {
