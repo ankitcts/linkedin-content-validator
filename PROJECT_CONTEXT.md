@@ -78,9 +78,17 @@ background.js    Service worker. PROVIDER config (enabled/url/headers),
 ```
 
 **Fragile points (by design, isolated):**
-- `SELECTORS` object at top of content.js — LinkedIn DOM classes change
-  periodically; fix in one place. Current: post = `div.feed-shared-update-v2,
-  div[data-id^="urn:li:activity"]`; text = `.update-components-text, ...`.
+- `SELECTORS` object in `content/selectors.js` — fix in one place. As of 2026-07
+  LinkedIn's feed uses HASHED, per-build CSS class names (e.g. `_205b22a0`), so
+  the old semantic classes (`.feed-shared-update-v2`, `.update-components-text`)
+  are gone. We now key off the stable `data-testid` hooks: post body text =
+  `[data-testid="expandable-text-box"]` (also the per-post unit we observe), and
+  anchor the card after its block-level `<p>` ancestor. If detection stops
+  finding posts, re-inspect a post and update these here.
+
+_Note: the `chrome-extension://invalid/ net::ERR_FAILED` spam in LinkedIn's
+console is LinkedIn's OWN bundle (`static.licdn.com/aero-v1/…` → `window.fetch`),
+not this extension — an extension-detection probe. Harmless; not ours to fix._
 
 ## 5. Card UI Spec (Community Notes style)
 
@@ -97,7 +105,10 @@ background.js    Service worker. PROVIDER config (enabled/url/headers),
 - [x] MVP skeleton (4 files above)
 - [x] Automated integration harness (jsdom) exercising the content pipeline +
       selectors against representative post markup (`test/integration-content.test.js`)
-- [ ] Load unpacked, validate selectors against live LinkedIn feed (manual, logged-in browser)
+- [x] Validate selectors against the live feed — done 2026-07: LinkedIn moved to
+      hashed class names; selectors reworked to the stable `data-testid` hooks and
+      pinned by a real-markup integration test. (Loading unpacked in a logged-in
+      browser for a final visual check is still worthwhile.)
 - [ ] Wire Stage-2 to a real detection API (candidate: Pangram, $0.05/1k words;
       map response in background.js) — on-demand or viewport-only scanning to
       control cost. Pluggable provider registry + disabled Pangram-style example

@@ -2,15 +2,17 @@
 // LinkedIn-shaped DOM fixture, in the same order the manifest loads them
 // (constants -> selectors -> detector -> card -> index). This validates the
 // pieces unit tests can't touch in isolation:
-//   - the SELECTORS actually match a realistic post structure
+//   - the SELECTORS match LinkedIn's current markup (hashed classes + the stable
+//     [data-testid="expandable-text-box"] hook)
 //   - the IntersectionObserver -> detect -> renderCard -> inject flow runs
 //   - MIN_WORDS and the sensitivity threshold gate correctly
 //   - the Stage-2 deep-check message is sent and upgrades the card in place
 //
-// It is NOT a substitute for validating selectors against the live, authenticated
-// LinkedIn feed (which needs a real logged-in browser) — the fixture mirrors the
-// post markup the SELECTORS target, so a LinkedIn DOM change still requires a
-// manual re-check. But it catches regressions in our own wiring.
+// The fixture mirrors the real feed markup (captured 2026-07 from a live feed:
+// hashed per-build class names, an <h2>Feed post</h2>, and the post body in a
+// <p><span data-testid="expandable-text-box">). It is still not a substitute for
+// a manual check on the live feed, but it catches regressions in our wiring and
+// pins the selector contract to the real DOM shape.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -40,14 +42,31 @@ const HUMAN_POST =
   'supervised from the porch the whole time and offered no help at all.';
 const SHORT_POST = 'Quick update: we shipped the new feature today and it went well.';
 
-function postMarkup(activityId, text) {
+// A real, polished LinkedIn post (captured from the live feed). Contains the
+// contrastive "not just about X but about Y" construction and "pivotal".
+const REAL_POST =
+  'TCS has announced plans to convert 1% to 1.5% of its associates, translating to ' +
+  'approximately 5,900 to 8,900 individuals, into forward-deployed AI engineers. The ' +
+  'CEO’s perspective is noteworthy: he believes that AI will generate new business ' +
+  'opportunities rather than diminish outsourcing. Forward-deployed engineers will be ' +
+  'integrated within client operations, focusing on transforming fragile prototypes into ' +
+  'functional systems instead of merely delivering a model and departing. This shift ' +
+  'should be viewed as a genuine hiring signal rather than a layoff indication. The ' +
+  'critical skill set in demand is not just about prompting a model but about integrating ' +
+  'various AI systems into complex existing enterprise infrastructures. The title of ' +
+  'forward-deployed engineer is emerging as a pivotal role in enterprise software.';
+
+// Faithful to LinkedIn's current feed markup: hashed, per-build class names plus
+// the stable data-testid hook our SELECTORS key off. The body text lives in a
+// <span data-testid="expandable-text-box"> inside a <p>; the card anchors after
+// that <p>.
+function postMarkup(id, text) {
   return `
-    <div class="feed-shared-update-v2" data-id="urn:li:activity:${activityId}">
-      <div class="feed-shared-update-v2__description-wrapper">
-        <div class="update-components-text">${text}</div>
-      </div>
-      <div class="social-details-social-actions">Like · Comment · Repost</div>
-    </div>`;
+    <article data-testpost="${id}">
+      <div class="_205b22a0 a214530a e5658197"><h2 class="_8444b62f"><span>Feed post</span></h2></div>
+      <p class="_8444b62f fa31a8fc _67661a5a" componentkey="body-${id}"><span class="bdc52b98 _12eb2009 _84b09c55" tabindex="-1" data-testid="expandable-text-box">${text}</span></p>
+      <div class="_3c0e8b9a _545e5fe8">102 reactions</div>
+    </article>`;
 }
 
 function buildFeed(posts, deepCheckResponse, options = {}) {
@@ -109,7 +128,6 @@ function buildFeed(posts, deepCheckResponse, options = {}) {
   window.chrome = {
     runtime: {
       lastError: null,
-      getURL: (path) => `chrome-extension://test/${path}`,
       sendMessage: (message, cb) => {
         sentMessages.push(message);
         if (typeof cb === 'function') Promise.resolve().then(() => cb(deepCheckResponse));
@@ -136,6 +154,7 @@ function buildFeed(posts, deepCheckResponse, options = {}) {
 // Flush pending microtasks + timers (settings load, deep-check callback).
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+const posts = (window) => window.document.querySelectorAll('[data-testpost]');
 const cardHost = (post) => post.querySelector('[data-lcv-card]');
 
 test('injects an evidence card for an AI-looking post and upgrades it via Stage-2', async () => {
@@ -147,13 +166,16 @@ test('injects an evidence card for an AI-looking post and upgrades it via Stage-
   window.__fireIntersections();
   await flush(); // Stage-2 deep-check callback
 
-  const aiPost = window.document.querySelectorAll('.feed-shared-update-v2')[0];
-  const host = cardHost(aiPost);
+  const host = cardHost(posts(window)[0]);
   assert.ok(host, 'AI post should receive a context card');
 
   const card = host.shadowRoot.querySelector('.lcv-card');
   assert.ok(card, 'card body should render inside the shadow root');
   assert.equal(card.dataset.state, 'verified', 'card should upgrade to verified after Stage-2');
+
+  // CSS is inlined into the shadow root (no chrome.runtime.getURL link).
+  assert.ok(host.shadowRoot.querySelector('style'), 'card CSS should be inlined as <style>');
+  assert.equal(host.shadowRoot.querySelector('link'), null, 'no external <link> stylesheet');
 
   const chip = card.querySelector('.lcv-chip');
   assert.ok(chip && chip.textContent.trim().length > 0, 'verdict chip should have a label');
@@ -171,14 +193,29 @@ test('injects an evidence card for an AI-looking post and upgrades it via Stage-
   assert.equal(sentMessages[0].type, 'deep-check');
 });
 
+test('cards a real, polished LinkedIn post captured from the live feed', async () => {
+  const { window, sentMessages } = buildFeed([REAL_POST], { score: 64, signals: [] });
+  await flush();
+  window.__fireIntersections();
+  await flush();
+
+  const post = posts(window)[0];
+  // Selector actually found the body text in the real markup shape.
+  const textEl = post.querySelector('[data-testid="expandable-text-box"]');
+  assert.ok(textEl && /TCS has announced/.test(textEl.textContent), 'body text extracted');
+
+  const host = cardHost(post);
+  assert.ok(host, 'a real AI-styled post should be carded');
+  assert.equal(sentMessages.length, 1, 'Stage-2 requested for the carded post');
+});
+
 test('does not card a human post below the sensitivity threshold', async () => {
   const { window, sentMessages } = buildFeed([HUMAN_POST], { score: 50, signals: [] });
   await flush();
   window.__fireIntersections();
   await flush();
 
-  const humanPost = window.document.querySelectorAll('.feed-shared-update-v2')[0];
-  assert.equal(cardHost(humanPost), null, 'human-looking post should not be carded');
+  assert.equal(cardHost(posts(window)[0]), null, 'human-looking post should not be carded');
   assert.equal(sentMessages.length, 0, 'no Stage-2 request for a gated post');
 });
 
@@ -188,8 +225,7 @@ test('does not score posts shorter than MIN_WORDS', async () => {
   window.__fireIntersections();
   await flush();
 
-  const shortPost = window.document.querySelectorAll('.feed-shared-update-v2')[0];
-  assert.equal(cardHost(shortPost), null, 'short post should be skipped');
+  assert.equal(cardHost(posts(window)[0]), null, 'short post should be skipped');
 });
 
 test('highlights flagged passages in the post without mutating its text DOM', async () => {
@@ -207,7 +243,7 @@ test('highlights flagged passages in the post without mutating its text DOM', as
 
   // Highlighting uses Ranges, so the post's own text node is neither wrapped
   // nor split — LinkedIn's DOM is left intact.
-  const textEl = window.document.querySelector('.update-components-text');
+  const textEl = window.document.querySelector('[data-testid="expandable-text-box"]');
   assert.equal(textEl.childNodes.length, 1, 'post text node should not be wrapped/split');
   assert.equal(textEl.textContent, AI_POST, 'post text content unchanged');
 });
