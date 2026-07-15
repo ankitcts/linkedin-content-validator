@@ -5,7 +5,7 @@
 //   - scanMode: 'auto' (score as you scroll) vs 'on-demand' (popup-triggered)
 // Settings auto-save on change (see PROJECT_CONTEXT.md §6, §7).
 
-const DEFAULTS = { sensitivity: 70, apiKey: '', scanMode: 'auto' };
+const DEFAULTS = { sensitivity: 45, apiKey: '', scanMode: 'auto' };
 
 const sensitivityEl = document.getElementById('sensitivity');
 const sensitivityValueEl = document.getElementById('sensitivityValue');

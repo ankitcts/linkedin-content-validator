@@ -17,11 +17,18 @@ globalThis.LCV = globalThis.LCV || {};
   if (LCV.__initialized) return;
   LCV.__initialized = true;
 
+  // One-line heartbeat so it's obvious in the console whether the content script
+  // loaded (distinct from LinkedIn's own noise; grep the console for "[LCV]").
+  console.info('[LCV] Authenticity Notes: content script active');
+
   const SELECTORS = LCV.SELECTORS;
   const MIN_WORDS = LCV.MIN_WORDS || 40;
 
   // User settings mirrored from chrome.storage.sync (written by popup/options).
-  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 70 };
+  // sensitivity 45 == the "possibly AI-assisted" threshold: the detector is
+  // deliberately conservative (most AI-styled posts score ~45-55), so a higher
+  // default would gate nearly every post and surface no cards.
+  const DEFAULTS = { enabled: true, scanMode: 'auto', sensitivity: 45 };
   const settings = { ...DEFAULTS };
 
   // Posts we've registered with the IntersectionObserver, and posts we've
@@ -80,6 +87,7 @@ globalThis.LCV = globalThis.LCV || {};
 
     const host = LCV.renderCard(result, { preliminary: true });
     anchor.insertAdjacentElement('afterend', host);
+    console.debug('[LCV] card injected — score', result.score);
 
     // Paint the flagged passages inside the post itself (best-effort).
     try {
