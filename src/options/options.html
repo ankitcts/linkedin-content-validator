@@ -20,35 +20,62 @@
           >
         </label>
 
-        <label class="options__field">
-          <span>Hugging Face access token</span>
-          <input type="password" id="apiKey" autocomplete="off" placeholder="hf_… (read scope)" />
-          <small class="options__hint"
-            >Powers the Stage-2 AI deep check AND the on-demand "Check facts" credibility analysis.
-            Create a read-scope token at huggingface.co/settings/tokens. Stored locally in your
-            browser, never hardcoded or synced. Without a token, only the local heuristic
-            runs.</small
-          >
-        </label>
-
-        <label class="options__field">
-          <span>Fact-check LLM model (optional)</span>
-          <input
-            type="text"
-            id="llmModel"
-            autocomplete="off"
-            placeholder="meta-llama/Llama-3.1-8B-Instruct"
-          />
-          <small class="options__hint"
-            >Hugging Face model used for the credibility analysis. Leave blank for the default. Free
-            LLM availability varies — if fact-checking fails, try another instruct model.</small
-          >
-        </label>
-
         <label class="options__field options__field--inline">
           <input type="checkbox" id="onDemand" />
           <span>On-demand scanning (instead of automatic)</span>
         </label>
+
+        <details class="options__advanced">
+          <summary>Advanced — backend &amp; keys</summary>
+
+          <p class="options__note">
+            By default, the AI deep check and "Check facts" credibility analysis run through the
+            hosted cloud backend, so no key is required. The settings below are optional overrides.
+          </p>
+
+          <label class="options__field">
+            <span>Cloud backend URL (optional)</span>
+            <input
+              type="url"
+              id="backendUrl"
+              autocomplete="off"
+              placeholder="https://linkedin-content-validator.vercel.app"
+            />
+            <small class="options__hint"
+              >Point at your own deployment of the proxy. Leave blank for the default hosted
+              backend.</small
+            >
+          </label>
+
+          <label class="options__field options__field--inline">
+            <input type="checkbox" id="backendDisabled" />
+            <span>Disable cloud backend (use my own key below)</span>
+          </label>
+
+          <label class="options__field">
+            <span>Hugging Face access token (fallback)</span>
+            <input type="password" id="apiKey" autocomplete="off" placeholder="hf_… (read scope)" />
+            <small class="options__hint"
+              >Used only when the cloud backend is disabled/unreachable. Create a read-scope token
+              at huggingface.co/settings/tokens. Stored locally in your browser, never
+              synced.</small
+            >
+          </label>
+
+          <label class="options__field">
+            <span>Fact-check LLM model (optional)</span>
+            <input
+              type="text"
+              id="llmModel"
+              autocomplete="off"
+              placeholder="meta-llama/Llama-3.1-8B-Instruct"
+            />
+            <small class="options__hint"
+              >Hugging Face model for the fallback credibility analysis. Leave blank for the
+              default.</small
+            >
+          </label>
+        </details>
       </form>
 
       <p class="options__status" id="status" role="status" aria-live="polite"></p>

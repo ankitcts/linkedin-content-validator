@@ -6,15 +6,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   huggingfaceProvider,
+  hostedBackendProvider,
   mapResponse,
   PROVIDER,
   NEUTRAL_RESULT,
 } from '../src/service-worker/providers.js';
 
-test('the active provider is the free Hugging Face detector and is enabled', () => {
-  assert.equal(PROVIDER.id, 'huggingface');
+test('the active provider is the hosted backend (key-free) by default', () => {
+  assert.equal(PROVIDER.id, 'hosted');
+  assert.equal(PROVIDER, hostedBackendProvider);
   assert.equal(PROVIDER.enabled, true);
-  assert.equal(PROVIDER.apiKeyStorageKey, 'hfToken');
+});
+
+test('the free Hugging Face detector remains available as an alternate', () => {
+  assert.equal(huggingfaceProvider.enabled, true);
+  assert.equal(huggingfaceProvider.apiKeyStorageKey, 'hfToken');
 });
 
 test('buildRequest targets the HF router with a bearer token and inputs', () => {
@@ -87,7 +93,12 @@ test('mapResponse: garbage / error payload degrades to neutral', () => {
   assert.equal(r.signals.length, 0);
 });
 
-test('top-level mapResponse delegates to the active provider', () => {
-  const r = mapResponse([[{ label: 'ChatGPT', score: 0.88 }]]);
+test('top-level mapResponse delegates to the active (hosted) provider', () => {
+  const r = mapResponse({ score: 88, signals: [{ label: 'x', detail: 'y' }] });
+  assert.equal(r.score, 88);
+});
+
+test('top-level mapResponse can target an explicit provider (HF)', () => {
+  const r = mapResponse([[{ label: 'ChatGPT', score: 0.88 }]], huggingfaceProvider);
   assert.equal(r.score, 88);
 });
