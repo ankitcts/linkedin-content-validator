@@ -10,9 +10,13 @@
 const PREF_DEFAULTS = { sensitivity: 45, scanMode: 'auto' };
 const TOKEN_KEY = 'hfToken';
 const LLM_MODEL_KEY = 'llmModel';
+const BACKEND_URL_KEY = 'backendUrl';
+const BACKEND_DISABLED_KEY = 'backendDisabled';
 
 const sensitivityEl = document.getElementById('sensitivity');
 const sensitivityValueEl = document.getElementById('sensitivityValue');
+const backendUrlEl = document.getElementById('backendUrl');
+const backendDisabledEl = document.getElementById('backendDisabled');
 const apiKeyEl = document.getElementById('apiKey');
 const llmModelEl = document.getElementById('llmModel');
 const onDemandEl = document.getElementById('onDemand');
@@ -37,10 +41,19 @@ chrome.storage.sync.get(PREF_DEFAULTS).then((stored) => {
   sensitivityValueEl.textContent = String(stored.sensitivity);
   onDemandEl.checked = stored.scanMode === 'on-demand';
 });
-chrome.storage.local.get({ [TOKEN_KEY]: '', [LLM_MODEL_KEY]: '' }).then((stored) => {
-  apiKeyEl.value = stored[TOKEN_KEY] || '';
-  llmModelEl.value = stored[LLM_MODEL_KEY] || '';
-});
+chrome.storage.local
+  .get({
+    [TOKEN_KEY]: '',
+    [LLM_MODEL_KEY]: '',
+    [BACKEND_URL_KEY]: '',
+    [BACKEND_DISABLED_KEY]: false,
+  })
+  .then((stored) => {
+    apiKeyEl.value = stored[TOKEN_KEY] || '';
+    llmModelEl.value = stored[LLM_MODEL_KEY] || '';
+    backendUrlEl.value = stored[BACKEND_URL_KEY] || '';
+    backendDisabledEl.checked = Boolean(stored[BACKEND_DISABLED_KEY]);
+  });
 
 // Live-update the readout as the slider moves; persist when it settles.
 sensitivityEl.addEventListener('input', () => {
@@ -48,6 +61,18 @@ sensitivityEl.addEventListener('input', () => {
 });
 sensitivityEl.addEventListener('change', () => {
   savePref({ sensitivity: Number(sensitivityEl.value) });
+});
+
+backendUrlEl.addEventListener('change', () => {
+  chrome.storage.local
+    .set({ [BACKEND_URL_KEY]: backendUrlEl.value.trim() })
+    .then(() => flashStatus('Saved'));
+});
+
+backendDisabledEl.addEventListener('change', () => {
+  chrome.storage.local
+    .set({ [BACKEND_DISABLED_KEY]: backendDisabledEl.checked })
+    .then(() => flashStatus('Saved'));
 });
 
 apiKeyEl.addEventListener('change', () => {

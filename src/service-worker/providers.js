@@ -192,16 +192,72 @@ export const huggingfaceProvider = {
   },
 };
 
+// --- Hosted backend (no user key) -------------------------------------------
+// Calls our own serverless proxy (proxy/, deployed to Vercel), which holds the
+// detection provider key server-side. This is the default so the published
+// extension works with NO configuration. The backend URL is resolved at call
+// time from chrome.storage.local (see backend.js), not baked in here, so it's
+// overridable per-install. The proxy already returns the app's { score, signals }
+// shape, so mapResponse just validates/clamps it.
+export const hostedBackendProvider = {
+  id: 'hosted',
+  label: 'Authenticity Notes cloud (no key needed)',
+  enabled: true,
+  // No per-user API key — the backend holds the keys.
+  apiKeyStorageKey: null,
+  // Flags the service worker to resolve the backend URL and skip the key check.
+  usesBackend: true,
+  backendPath: '/api/detect',
+
+  /**
+   * @param {string} text        the post body to classify
+   * @param {string} _apiKey     unused (backend holds keys)
+   * @param {string} backendUrl  resolved base URL (no trailing slash)
+   * @returns {{ url: string, options: RequestInit }}
+   */
+  buildRequest(text, _apiKey, backendUrl) {
+    return {
+      url: `${backendUrl}${this.backendPath}`,
+      options: {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: String(text).slice(0, 8000) }),
+      },
+    };
+  },
+
+  /**
+   * The backend already returns { score, signals }. Validate + clamp, and treat
+   * an { unavailable } payload as no-result so the card keeps the Stage-1 verdict.
+   * @param {unknown} raw
+   * @returns {{ score: number, signals: Array<{ label: string, detail: string }> }}
+   */
+  mapResponse(raw) {
+    const data = raw && typeof raw === 'object' ? raw : {};
+    if (data.unavailable) return { ...NEUTRAL_RESULT };
+    const score = clampScore(data.score);
+    const signals = Array.isArray(data.signals)
+      ? data.signals
+          .filter((s) => s && typeof s.label === 'string' && typeof s.detail === 'string')
+          .slice(0, 8)
+          .map((s) => ({ label: String(s.label), detail: String(s.detail) }))
+      : [];
+    return { score, signals };
+  },
+};
+
 // Registry of available providers, keyed by id. Add your own entry here.
 export const PROVIDERS = Object.freeze({
+  [hostedBackendProvider.id]: hostedBackendProvider,
   [huggingfaceProvider.id]: huggingfaceProvider,
   [pangramProvider.id]: pangramProvider,
 });
 
 // The active provider the service worker uses. Swap this to any PROVIDERS entry
-// to change detection backends. Defaults to the free Hugging Face detector; with
-// no token set it degrades gracefully to the local Stage-1 heuristic.
-export const PROVIDER = huggingfaceProvider;
+// to change detection backends. Defaults to the hosted backend so the extension
+// works with no user key; degrades to the local Stage-1 heuristic when the
+// backend is unreachable/unconfigured.
+export const PROVIDER = hostedBackendProvider;
 
 /**
  * Normalise a raw provider response into the app's { score, signals } shape,

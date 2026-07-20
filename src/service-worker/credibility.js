@@ -7,6 +7,7 @@
 // LLM token is set or a call fails.
 import { LLM_PROVIDER } from './llm.js';
 import { searchEvidence } from './search.js';
+import { getBackendUrl, backendCredibility } from './backend.js';
 
 export const VERDICTS = ['authentic', 'mixed', 'dicey'];
 export const CLAIM_STATUSES = ['supported', 'unverified', 'disputed'];
@@ -95,6 +96,16 @@ export async function analyzeCredibility(text) {
   if (typeof text !== 'string' || !text.trim()) {
     return { unavailable: true, reason: 'empty' };
   }
+
+  // Prefer the hosted backend (no user key). It fact-checks with Gemini + Google
+  // Search server-side. Only if the backend is disabled/unreachable do we fall
+  // back to the bring-your-own-token path below.
+  const backendUrl = await getBackendUrl();
+  if (backendUrl) {
+    const hosted = await backendCredibility(backendUrl, text);
+    if (hosted && !hosted.unavailable) return hosted;
+  }
+
   const apiKey = await readLlmKey();
   if (!apiKey) return { unavailable: true, reason: 'no-token' };
 

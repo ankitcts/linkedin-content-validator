@@ -27,6 +27,22 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '.claude/**'],
+    // The hosted backend proxy runs on Vercel's Node runtime (ESM).
+    files: ['proxy/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
+        TextEncoder: 'readonly',
+      },
+    },
+  },
+  {
+    ignores: ['dist/**', 'node_modules/**', '.claude/**', 'proxy/node_modules/**'],
   },
 ];

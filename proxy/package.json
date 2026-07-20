@@ -1,0 +1,10 @@
+{
+  "name": "authenticity-notes-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Serverless backend for the Authenticity Notes extension: hosted /detect and /credibility so the extension works with no user API key.",
+  "engines": {
+    "node": ">=18"
+  }
+}

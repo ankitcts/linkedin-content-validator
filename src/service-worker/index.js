@@ -10,6 +10,7 @@ import { sha256 } from './hash.js';
 import { getCached, setCached } from './cache.js';
 import { PROVIDER, mapResponse, NEUTRAL_RESULT } from './providers.js';
 import { analyzeCredibility } from './credibility.js';
+import { getBackendUrl } from './backend.js';
 
 /**
  * Read the active provider's API key from chrome.storage.local. Returns '' when
@@ -34,11 +35,17 @@ async function readApiKey(provider) {
  * @returns {Promise<{ score: number, signals: Array<{ label: string, detail: string }> }>}
  */
 async function deepCheck(text) {
-  // Key the cache by provider + model too, so switching detection backends
-  // invalidates results scored by a previous model (rather than serving stale
-  // verdicts for the same post text).
   const provider = PROVIDER || {};
-  const hash = await sha256(`${provider.id || ''}:${provider.model || ''}:${text}`);
+
+  // Backend-backed providers (the default hosted proxy) resolve their URL at
+  // call time; it's part of the cache key so pointing at a different backend
+  // re-checks rather than serving another backend's cached verdict.
+  const backendUrl = provider.usesBackend ? await getBackendUrl() : '';
+
+  // Key the cache by provider + model/backend too, so switching detection
+  // backends invalidates results scored by a previous model (rather than serving
+  // stale verdicts for the same post text).
+  const hash = await sha256(`${provider.id || ''}:${provider.model || backendUrl || ''}:${text}`);
 
   const cached = await getCached(hash);
   if (cached) return cached;
@@ -49,19 +56,28 @@ async function deepCheck(text) {
     return { ...NEUTRAL_RESULT, unavailable: true };
   }
 
-  const apiKey = await readApiKey(PROVIDER);
-  if (!apiKey) {
-    return { ...NEUTRAL_RESULT, unavailable: true };
+  // A backend provider needs a URL; a key-based provider needs its key. Either
+  // missing -> unavailable, so the card keeps the informative Stage-1 verdict.
+  if (provider.usesBackend) {
+    if (!backendUrl) return { ...NEUTRAL_RESULT, unavailable: true };
+  } else if (PROVIDER.apiKeyStorageKey) {
+    const key = await readApiKey(PROVIDER);
+    if (!key) return { ...NEUTRAL_RESULT, unavailable: true };
   }
 
   let result;
   try {
-    const { url, options } = PROVIDER.buildRequest(text, apiKey);
+    const apiKey = PROVIDER.apiKeyStorageKey ? await readApiKey(PROVIDER) : '';
+    const { url, options } = PROVIDER.buildRequest(text, apiKey, backendUrl);
     const response = await fetch(url, options);
     if (!response.ok) {
       return { ...NEUTRAL_RESULT, unavailable: true };
     }
     const raw = await response.json();
+    // A backend can answer 200 with { unavailable } (no server-side key set).
+    if (raw && raw.unavailable) {
+      return { ...NEUTRAL_RESULT, unavailable: true };
+    }
     result = mapResponse(raw);
   } catch {
     return { ...NEUTRAL_RESULT, unavailable: true };

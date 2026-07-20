@@ -128,9 +128,25 @@ not this extension — an extension-detection probe. Harmless; not ours to fix._
       structured credibility read with flagged claims (`credibility.js`). Framed
       as an assistive signal, never a hard "fake" verdict. Free LLM/search are
       limited (weak on recent/niche claims); the pipeline is built to upgrade.
+- [x] Hosted backend so the extension works with NO user key — done 2026-07:
+      `proxy/` is a Vercel serverless app with `POST /api/detect`,
+      `POST /api/credibility`, and `GET /api/health`. Keys live in Vercel env
+      vars (never shipped): **credibility uses Gemini 2.5 Flash with Google
+      Search grounding**; **detection** picks the first configured provider —
+      Pangram → Hugging Face → a Gemini heuristic estimate — so it's functional
+      with just `GEMINI_API_KEY`. Per-IP rate limiting + content-hash cache
+      (Upstash Redis when configured, else in-memory). The extension's default
+      provider is now `hostedBackendProvider` (`providers.js`) and
+      `analyzeCredibility` calls the backend first (`backend.js`), both resolving
+      the URL from `DEFAULT_BACKEND_URL` / an options override; they degrade to
+      the local Stage-1 heuristic (detection) or the BYO-HF-token path
+      (credibility) when the backend is unreachable. Deploy: import `proxy/`
+      to Vercel (Framework preset "Other", root dir `proxy`), add env vars,
+      redeploy; see `proxy/README.md` (incl. detection alternatives to Pangram:
+      GPTZero, Originality.ai, Sapling, Winston AI, Copyleaks, self-host).
 - [ ] Icons + Chrome Web Store listing assets
 - [ ] v2 candidates: author-level reputation aggregation; X/Substack support;
-      real web-search grounding; better/paid LLM + detection provider
+      better/paid detection provider; shared server-side KV cache
 
 ## 7. Constraints & Principles
 
@@ -138,4 +154,5 @@ not this extension — an extension-detection probe. Harmless; not ours to fix._
 - Never hardcode API keys in the extension; keys live in options/storage
 - Min 40 words before scoring; short posts get no card
 - Cache by content hash; never re-bill the same text
-- Privacy: local-first; only Stage-2 sends text off-device (disclose in listing)
+- Privacy: local-first; Stage-2 (auto) and Stage-3 (on-demand) send post text to
+  the hosted backend / provider — disclose in the listing + privacy policy
